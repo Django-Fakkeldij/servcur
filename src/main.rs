@@ -7,6 +7,7 @@ use bollard::{
     volume::ListVolumesOptions, Docker,
 };
 use tokio::sync::Mutex;
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
@@ -46,6 +47,12 @@ async fn main() {
         .nest("/images", images_router)
         .nest("/networks", networks_router)
         .with_state(state)
+        .layer(
+            CorsLayer::new()
+                // allow requests from any origin
+                .allow_origin(Any)
+                .allow_headers(Any),
+        )
         .layer(TraceLayer::new_for_http());
     // run our app with hyper
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
