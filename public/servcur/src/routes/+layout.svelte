@@ -1,7 +1,13 @@
 <script>
-	import { DarkMode } from 'flowbite-svelte';
+	import Navigation from '$lib/Navigation.svelte';
 	import '../app.pcss';
 </script>
 
-<DarkMode />
-<slot />
+<div class="flex">
+	<div>
+		<Navigation />
+	</div>
+	<div class="h-full w-full">
+		<slot />
+	</div>
+</div>
