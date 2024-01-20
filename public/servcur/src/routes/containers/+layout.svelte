@@ -7,10 +7,6 @@
 
 	const content = writable([]);
 
-	content.subscribe((a) => {
-		console.warn('UPDATE: ', a);
-	});
-
 	setContext('data', content);
 	const stream = async () => {
 		content.set(await data.containers_stream.then((val) => val.json()));

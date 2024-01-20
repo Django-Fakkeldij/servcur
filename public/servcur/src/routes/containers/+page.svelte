@@ -4,7 +4,6 @@
 	import type { Writable } from 'svelte/store';
 
 	$: containers = getContext('data') as Writable<[]>;
-	$: console.log(containers);
 </script>
 
 {#each $containers as container}
