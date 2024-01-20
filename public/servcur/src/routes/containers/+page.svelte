@@ -1,11 +1,12 @@
 <script lang="ts">
+	import type { ContainerSummary } from '$lib/docker_types/__generated';
 	import { P } from 'flowbite-svelte';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
-	$: containers = getContext('data') as Writable<[]>;
+	$: containers = getContext('data') as Writable<ContainerSummary[]>;
 </script>
 
 {#each $containers as container}
-	<P>{@html JSON.stringify(container, null, 4).replaceAll('\n', '<br/>')}</P>
+	<P>{container.Names?.at(0) ?? 'no-name'}</P>
 {/each}

@@ -1,11 +1,12 @@
 <script lang="ts">
+	import type { ContainerSummary } from '$lib/docker_types/__generated/index.js';
 	import { Spinner } from 'flowbite-svelte';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 
 	export let data;
 
-	const content = writable([]);
+	const content = writable<ContainerSummary[]>([]);
 
 	setContext('data', content);
 	const stream = async () => {
