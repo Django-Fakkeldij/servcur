@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ContainerCard from '$lib/ContainerCard.svelte';
 	import type { ContainerSummary } from '$lib/docker_types/__generated';
-	import { Card, Heading, Secondary, Table, TableBody, TableHead, TableHeadCell } from 'flowbite-svelte';
+	import { A, Card, Heading, P, Popover, Secondary, Table, TableBody, TableHead, TableHeadCell } from 'flowbite-svelte';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
@@ -17,10 +17,16 @@
 					All the existing containers on this machine.
 				</Secondary>
 			</caption>
+			<Popover triggeredBy="#portSyntax" class="text-center">
+				<Heading tag="h6">Port syntax</Heading>
+				<P>[ IP? ] : [ PublicPort? ] : [ PrivatePort ] / [protocol]</P>
+				<A href="https://docs.docker.com/network/">Docs</A>
+			</Popover>
 			<TableHead>
 				<TableHeadCell></TableHeadCell>
 				<TableHeadCell>Name</TableHeadCell>
 				<TableHeadCell>Image</TableHeadCell>
+				<TableHeadCell id="portSyntax">Ports</TableHeadCell>
 				<TableHeadCell>Status</TableHeadCell>
 			</TableHead>
 			<TableBody>

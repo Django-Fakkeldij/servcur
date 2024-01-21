@@ -56,6 +56,15 @@
 		<P>{container.Image}</P>
 	</TableBodyCell>
 	<TableBodyCell>
+		<div class="flex gap-2">
+			{#each container.Ports ?? [] as port}
+				<Badge large color="indigo">
+					{port?.IP ? port.IP + ':' : ''}{port?.PublicPort ? port.PublicPort + ':' : ''}{port?.PrivatePort}{'/' + port?.Type}
+				</Badge>
+			{/each}
+		</div>
+	</TableBodyCell>
+	<TableBodyCell>
 		<Badge color={containerState.badge_color} class="gap-2 text-nowrap p-2">
 			<ClockSolid size="sm" />{container.Status}
 		</Badge>
