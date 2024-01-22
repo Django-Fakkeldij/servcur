@@ -1,11 +1,31 @@
 <script lang="ts">
 	import ContainerCard from '$lib/ContainerCard.svelte';
+	import StackCard from '$lib/StackCard.svelte';
 	import type { ContainerSummary } from '$lib/docker_types/__generated';
 	import { A, Card, Heading, P, Popover, Secondary, Table, TableBody, TableHead, TableHeadCell } from 'flowbite-svelte';
 	import { getContext } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	$: containers = getContext('data') as Writable<ContainerSummary[]>;
+
+	type IStackGrouping = Map<string, ContainerSummary[]>;
+
+	const stackKey = 'com.docker.compose.project';
+	function mapContainers(containers: ContainerSummary[]): [ContainerSummary[], ContainerSummary[][]] {
+		const no_stack: ContainerSummary[] = containers.filter((container) => !(stackKey in (container?.Labels ?? {})));
+
+		const stacks: IStackGrouping = new Map();
+
+		containers.forEach((container) => {
+			if (container?.Labels && stackKey in container.Labels) {
+				const old = stacks.get(container.Labels[stackKey]) ?? [];
+				stacks.set(container.Labels[stackKey], [...old, container]);
+			}
+		});
+
+		return [no_stack, Array.from(stacks.values())];
+	}
+	$: [containers_no_stack, stacks] = mapContainers($containers);
 </script>
 
 <div class="flex items-center justify-center p-4">
@@ -30,8 +50,11 @@
 				<TableHeadCell>Status</TableHeadCell>
 			</TableHead>
 			<TableBody>
-				{#each $containers as container}
+				{#each containers_no_stack as container}
 					<ContainerCard {container} />
+				{/each}
+				{#each stacks as stack}
+					<StackCard containers={stack} />
 				{/each}
 			</TableBody>
 		</Table>

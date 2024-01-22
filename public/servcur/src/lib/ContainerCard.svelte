@@ -6,6 +6,8 @@
 
 	export let container: ContainerSummary;
 
+	export let spacing = false;
+
 	$: name_display = container.Names?.reduce((total: string, current) => total + ' ' + current, '').replaceAll('/', '');
 	$: created_at = new Date((container.Created ?? 0) * 1000);
 
@@ -15,19 +17,19 @@
 			case 'running':
 				return {
 					tailwind_color: 'text-green-500',
-					label: capatalizeWord(container.State),
+					label: capatalizeWord(state),
 					badge_color: 'green',
 				};
 			case 'exited':
 				return {
 					tailwind_color: 'text-red-500',
-					label: capatalizeWord(container.State),
+					label: capatalizeWord(state),
 					badge_color: 'red',
 				};
 			default:
 				return {
 					tailwind_color: 'text-yellow-500',
-					label: capatalizeWord(container.State),
+					label: capatalizeWord(state),
 					badge_color: 'yellow',
 				};
 		}
@@ -36,22 +38,22 @@
 </script>
 
 <TableBodyRow>
-	<TableBodyCell>
-		<Popover triggeredBy="#containerstate" class="text-center">
+	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}>
+		<Popover triggeredBy="#containerstate-{container.Id}" class="text-center">
 			<Heading tag="h6" color={containerState.tailwind_color}>{containerState.label}</Heading>
 			<P>Created on {created_at.toLocaleDateString()} at {created_at.toLocaleTimeString()}</P>
 		</Popover>
 		<div class="flex min-w-min items-center gap-2 {containerState.tailwind_color}">
 			{#if container.State === 'exited'}
-				<CloseCircleSolid id="containerstate" />
+				<CloseCircleSolid id="containerstate-{container.Id}" />
 			{:else if container.State === 'running'}
-				<CheckCircleSolid id="containerstate" />
+				<CheckCircleSolid id="containerstate-{container.Id}" />
 			{:else}
-				<QuestionCircleSolid id="containerstate" />
+				<QuestionCircleSolid id="containerstate-{container.Id}" />
 			{/if}
 		</div>
 	</TableBodyCell>
-	<TableBodyCell><Heading tag="h5">{name_display}</Heading></TableBodyCell>
+	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}><Heading tag="h5">{name_display}</Heading></TableBodyCell>
 	<TableBodyCell>
 		<P>{container.Image}</P>
 	</TableBodyCell>
