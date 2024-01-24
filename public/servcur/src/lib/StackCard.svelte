@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ContainerCard from '$lib/ContainerCard.svelte';
-	import { Badge, Button, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
+	import { Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { ChevronDownSolid, ChevronRightSolid, ClockSolid, LayersSolid } from 'flowbite-svelte-icons';
 	import type { ContainerSummary } from './docker_types/__generated';
 	import { capatalizeWord } from './util';
@@ -72,20 +72,20 @@
 
 <TableBodyRow>
 	<TableBodyCell>
-		<div class="flex items-center justify-between gap-2">
+		<div class="flex items-center gap-4">
 			<Popover triggeredBy="#containerstate-{name}" class="text-center">
 				<Heading tag="h6" color={collapsedState.tailwind_color}>{collapsedState.label} ({containers.length}/{runningContainers})</Heading>
 				<P>Created on {created_at.toLocaleDateString()} at {created_at.toLocaleTimeString()}</P>
 			</Popover>
 			<LayersSolid id="containerstate-{name}" class="h-5 w-5 {collapsedState.tailwind_color}" />
 			{#if open}
-				<Button color="alternative" on:click={() => (open = !open)}>
+				<button style="all: unset; cursor: pointer;" on:click={() => (open = !open)}>
 					<ChevronDownSolid size="xs" />
-				</Button>
+				</button>
 			{:else}
-				<Button color="alternative" on:click={() => (open = !open)}>
+				<button style="all: unset; cursor: pointer;" on:click={() => (open = !open)}>
 					<ChevronRightSolid size="xs" />
-				</Button>
+				</button>
 			{/if}
 		</div>
 	</TableBodyCell>
