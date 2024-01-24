@@ -42,3 +42,10 @@ export function fileSizeMagnitudeBytes(inp: number): [number, keyof typeof magni
 
 	return [inp / magnitude_bytes[guess], guess];
 }
+
+export function dateString(d: Date): string {
+	return new Intl.DateTimeFormat(undefined, {
+		dateStyle: 'medium',
+		timeStyle: 'long',
+	}).format(d);
+}

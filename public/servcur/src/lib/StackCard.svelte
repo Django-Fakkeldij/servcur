@@ -3,7 +3,7 @@
 	import { Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { ChevronDownSolid, ChevronRightSolid, ClockSolid, LayersSolid } from 'flowbite-svelte-icons';
 	import type { ContainerSummary } from './docker_types/__generated';
-	import { capatalizeWord } from './util';
+	import { capatalizeWord, dateString } from './util';
 
 	export let containers: ContainerSummary[];
 
@@ -75,7 +75,7 @@
 		<div class="flex items-center gap-4">
 			<Popover triggeredBy="#containerstate-{name}" class="text-center">
 				<Heading tag="h6" color={collapsedState.tailwind_color}>{collapsedState.label} ({containers.length}/{runningContainers})</Heading>
-				<P>Created on {created_at.toLocaleDateString()} at {created_at.toLocaleTimeString()}</P>
+				<P>Created on {dateString(created_at)}</P>
 			</Popover>
 			<LayersSolid id="containerstate-{name}" class="h-5 w-5 {collapsedState.tailwind_color}" />
 			{#if open}

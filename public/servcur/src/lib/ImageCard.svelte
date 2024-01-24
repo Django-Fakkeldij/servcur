@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Heading, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import type { ImageSummary } from './docker_types/__generated';
-	import { fileSizeMagnitudeBytes } from './util';
+	import { dateString, fileSizeMagnitudeBytes } from './util';
 
 	export let image: ImageSummary;
 
@@ -17,7 +17,7 @@
 		</Heading>
 	</TableBodyCell>
 	<TableBodyCell>
-		{created_at.toLocaleDateString()} at {created_at.toLocaleTimeString()}
+		{dateString(created_at)}
 	</TableBodyCell>
 	<TableBodyCell>
 		{fileSize[0].toFixed(2)}

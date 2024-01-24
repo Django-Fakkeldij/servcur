@@ -4,6 +4,6 @@
 	export let data;
 </script>
 
-<AsyncLoad data={data.containers_stream}>
+<AsyncLoad data={data.stream}>
 	<slot />
 </AsyncLoad>

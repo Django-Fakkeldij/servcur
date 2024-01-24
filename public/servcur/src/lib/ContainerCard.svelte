@@ -2,7 +2,7 @@
 	import { Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { CheckCircleSolid, ClockSolid, CloseCircleSolid, QuestionCircleSolid } from 'flowbite-svelte-icons';
 	import type { ContainerSummary } from './docker_types/__generated';
-	import { capatalizeWord } from './util';
+	import { capatalizeWord, dateString } from './util';
 
 	export let container: ContainerSummary;
 
@@ -41,7 +41,7 @@
 	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}>
 		<Popover triggeredBy="#containerstate-{container.Id}" class="text-center">
 			<Heading tag="h6" color={containerState.tailwind_color}>{containerState.label}</Heading>
-			<P>Created on {created_at.toLocaleDateString()} at {created_at.toLocaleTimeString()}</P>
+			<P>Created on {dateString(created_at)}</P>
 		</Popover>
 		<div class="flex min-w-min items-center gap-2 {containerState.tailwind_color}">
 			{#if container.State === 'exited'}
