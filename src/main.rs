@@ -1,11 +1,13 @@
 use std::sync::Arc;
 
+use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
 
 use bollard::{
     container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
     volume::ListVolumesOptions, Docker,
 };
+use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -29,6 +31,12 @@ async fn main() {
     // Init docker api connection
     let docker = Docker::connect_with_socket_defaults().unwrap();
 
+    // Ping to make sure docker is running
+    docker
+        .ping()
+        .await
+        .expect("----\nCould not connect to Docker daemon (is it running?)\n----\n");
+
     let state: AppState = AppState {
         state: Arc::new(Mutex::new(docker)),
     };
@@ -42,6 +50,7 @@ async fn main() {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
+        .route("/system", get(docker_sys_info))
         .nest("/volumes", volumes_router)
         .nest("/containers", containers_router)
         .nest("/images", images_router)
@@ -66,7 +75,12 @@ async fn root() -> (StatusCode, &'static str) {
     (StatusCode::OK, "hi")
 }
 
-async fn containers(State(state): State<AppState>) -> (StatusCode, String) {
+async fn docker_sys_info(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+    let ret = state.state.lock_owned().await.info().await.unwrap();
+    (StatusCode::OK, Json(json!(&ret)))
+}
+
+async fn containers(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     let ret = state
         .state
         .lock_owned()
@@ -77,10 +91,10 @@ async fn containers(State(state): State<AppState>) -> (StatusCode, String) {
         }))
         .await
         .unwrap();
-    (StatusCode::OK, serde_json::to_string_pretty(&ret).unwrap())
+    (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn images(State(state): State<AppState>) -> (StatusCode, String) {
+async fn images(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     let ret = state
         .state
         .lock_owned()
@@ -91,10 +105,10 @@ async fn images(State(state): State<AppState>) -> (StatusCode, String) {
         }))
         .await
         .unwrap();
-    (StatusCode::OK, serde_json::to_string_pretty(&ret).unwrap())
+    (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn volumes(State(state): State<AppState>) -> (StatusCode, String) {
+async fn volumes(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     let ret = state
         .state
         .lock_owned()
@@ -104,10 +118,10 @@ async fn volumes(State(state): State<AppState>) -> (StatusCode, String) {
         }))
         .await
         .unwrap();
-    (StatusCode::OK, serde_json::to_string_pretty(&ret).unwrap())
+    (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn networks(State(state): State<AppState>) -> (StatusCode, String) {
+async fn networks(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     let ret = state
         .state
         .lock_owned()
@@ -117,5 +131,5 @@ async fn networks(State(state): State<AppState>) -> (StatusCode, String) {
         }))
         .await
         .unwrap();
-    (StatusCode::OK, serde_json::to_string_pretty(&ret).unwrap())
+    (StatusCode::OK, Json(json!(&ret)))
 }

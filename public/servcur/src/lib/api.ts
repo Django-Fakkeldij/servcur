@@ -1,6 +1,7 @@
 export const API_URL = 'http://127.0.0.1:3000' as const;
 
 export const API_ROUTES = {
+	system: `${API_URL}/system` as const,
 	containers: `${API_URL}/containers` as const,
 	images: `${API_URL}/images` as const,
 	volumes: `${API_URL}/volumes` as const,
