@@ -14,9 +14,9 @@
 <div class="flex items-center justify-center p-4">
 	<div class="flex w-full max-w-screen-xl flex-col items-center justify-center gap-8">
 		<Heading>Hi there!</Heading>
-		<div class="grid w-full grid-cols-2">
+		<div class="grid w-full grid-cols-2 gap-4">
 			<div class="flex flex-col gap-2">
-				<Card>
+				<Card class="max-w-full">
 					<div class="flex items-center gap-2">
 						<LightbulbSolid />
 						<Heading tag="h3">Containers:</Heading>
@@ -37,25 +37,25 @@
 						</div>
 					</div>
 				</Card>
-				<Card>
+				<Card class="max-w-full">
 					<div class="flex items-center gap-2">
 						<LightbulbSolid />
 						<Heading tag="h3">Images: {$system.Images}</Heading>
 					</div>
 				</Card>
-				<Card>
+				<Card class="max-w-full">
 					<div class="flex items-center gap-2">
 						<LightbulbSolid />
 						<Heading tag="h3">Memory: {memory[0].toFixed(1)} {memory[1]}</Heading>
 					</div>
 				</Card>
-				<Card>
+				<Card class="max-w-full">
 					<div class="flex items-center gap-2">
 						<LightbulbSolid />
 						<Heading tag="h3">Warnings:</Heading>
 					</div>
 					<Hr hrClass="my-4" />
-					<div class="max-h-48 overflow-auto">
+					<div class="max-h-48 overflow-auto bg-neutral-800 p-2">
 						{#if !$system.Warnings || $system.Warnings.length === 0}
 							<P weight="semibold" class="!text-green-500">No warnings!</P>
 						{:else}
@@ -66,7 +66,7 @@
 					</div>
 				</Card>
 			</div>
-			<Card>
+			<Card class="max-w-full">
 				<div class="flex items-center gap-2">
 					<InfoCircleSolid />
 					<Heading tag="h3">System</Heading>
