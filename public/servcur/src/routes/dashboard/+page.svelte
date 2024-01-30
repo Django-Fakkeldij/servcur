@@ -12,7 +12,7 @@
 </script>
 
 <div class="flex items-center justify-center p-4">
-	<div class="flex w-full max-w-screen-xl flex-col items-center justify-center gap-8">
+	<div class="flex w-full max-w-screen-xl flex-col items-center justify-center gap-4">
 		<Heading>Hi there!</Heading>
 		<div class="grid w-full grid-cols-2 gap-4">
 			<div class="flex flex-col gap-2">
