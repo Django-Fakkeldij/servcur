@@ -100,6 +100,8 @@ async fn containers(State(state): State<AppState>) -> (StatusCode, Json<Value>) 
     (StatusCode::OK, Json(json!(&ret)))
 }
 
+// TODO: make it WS
+// TODO: query param to skip chunks (avoid having lots of frontend traffic)
 async fn container_logs(
     State(state): State<AppState>,
     Path(id): Path<String>,
