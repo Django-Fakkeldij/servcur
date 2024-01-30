@@ -35,7 +35,7 @@ async fn main() {
     docker
         .ping()
         .await
-        .expect("----\nCould not connect to Docker daemon (is it running?)\n----\n");
+        .expect("Could not connect to Docker daemon (is it running?)");
 
     let state: AppState = AppState {
         state: Arc::new(Mutex::new(docker)),
