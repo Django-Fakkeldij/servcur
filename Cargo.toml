@@ -15,3 +15,8 @@ axum = { version = "0.7.4", features = ["ws", "http2", "multipart"] }
 tower-http = { version = "0.5.1", features = ["full"] }
 bollard = { git = "https://github.com/fussybeaver/bollard.git" }
 futures = "0.3.30"
+futures-util = { version = "0.3.30", default-features = false, features = [
+    "sink",
+    "std",
+] }
+hyper = { version = "1.1.0", features = ["full"] }

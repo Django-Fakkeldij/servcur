@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { API_ROUTES } from '$lib/api';
 	import type { SystemInfo } from '$lib/docker_types/__generated';
 	import { dateString, fileSizeMagnitudeBytes } from '$lib/util';
 	import { Card, Heading, Hr, P } from 'flowbite-svelte';
@@ -9,6 +10,9 @@
 	$: system = getContext('data') as Writable<SystemInfo>;
 
 	$: memory = fileSizeMagnitudeBytes($system.MemTotal ?? 0);
+
+	const ws = new WebSocket(API_ROUTES.containers_logs_ws('intelligent_varahamihira'));
+	ws.onmessage = (ev) => console.log(ev.data);
 </script>
 
 <div class="flex items-center justify-center p-4">

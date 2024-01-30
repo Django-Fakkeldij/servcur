@@ -689,6 +689,7 @@ dependencies = [
  "itoa",
  "pin-project-lite",
  "tokio",
+ "want",
 ]
 
 [[package]]
@@ -1255,6 +1256,8 @@ dependencies = [
  "axum",
  "bollard",
  "futures",
+ "futures-util",
+ "hyper 1.1.0",
  "serde",
  "serde_json",
  "tokio",

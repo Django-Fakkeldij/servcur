@@ -1,12 +1,9 @@
+use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::extract::Path;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
 
-use futures::stream::StreamExt;
-
-use bollard::container::{AttachContainerOptions, LogOutput};
 use bollard::{
     container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
     volume::ListVolumesOptions, Docker,
@@ -17,8 +14,10 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
+pub mod api;
+
 #[derive(Debug, Clone)]
-struct AppState {
+pub struct AppState {
     state: Arc<Mutex<Docker>>,
 }
 
@@ -48,7 +47,7 @@ async fn main() {
     let volumes_router = Router::new().route("/", get(volumes));
     let containers_router = Router::new()
         .route("/", get(containers))
-        .route("/:id/logs", get(container_logs));
+        .route("/:id/logs", get(api::ws::ws_upgrader));
     let images_router = Router::new().route("/", get(images));
     let networks_router = Router::new().route("/", get(networks));
 
@@ -74,7 +73,12 @@ async fn main() {
         .await
         .unwrap();
     tracing::debug!("listening on http://{}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .await
+    .unwrap();
 }
 
 async fn root() -> (StatusCode, &'static str) {
@@ -98,43 +102,6 @@ async fn containers(State(state): State<AppState>) -> (StatusCode, Json<Value>) 
         .await
         .unwrap();
     (StatusCode::OK, Json(json!(&ret)))
-}
-
-// TODO: make it WS
-// TODO: query param to skip chunks (avoid having lots of frontend traffic)
-async fn container_logs(
-    State(state): State<AppState>,
-    Path(id): Path<String>,
-) -> (StatusCode, Json<Value>) {
-    let mut ret = state
-        .state
-        .lock_owned()
-        .await
-        .attach_container(
-            &id,
-            Some(AttachContainerOptions::<String> {
-                stdin: Some(true),
-                stdout: Some(true),
-                stderr: Some(true),
-                stream: Some(true),
-                logs: Some(true),
-                detach_keys: Some("ctrl-c".to_string()),
-            }),
-        )
-        .await
-        .unwrap()
-        .output;
-    let ret1: LogOutput = ret.next().await.unwrap().unwrap();
-    let m = match ret1 {
-        LogOutput::StdErr { message } => message,
-        LogOutput::StdOut { message } => message,
-        LogOutput::StdIn { message } => message,
-        LogOutput::Console { message } => message,
-    };
-    (
-        StatusCode::OK,
-        Json(json!(&String::from_utf8(m.to_vec()).unwrap())),
-    )
 }
 
 async fn images(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
