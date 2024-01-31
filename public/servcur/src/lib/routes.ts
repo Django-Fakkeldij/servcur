@@ -1,8 +1,9 @@
 export const routes = {
-	home: '/',
-	dashboard: '/dashboard',
-	containers: '/containers',
-	images: '/images',
-	volumes: '/volumes',
-	networks: '/networks',
-};
+	home: '/' as const,
+	dashboard: '/dashboard' as const,
+	containers: '/containers' as const,
+	container: (id: string) => `/containers/${id}` as const,
+	images: '/images' as const,
+	volumes: '/volumes' as const,
+	networks: '/networks' as const,
+} as const;

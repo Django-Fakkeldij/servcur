@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
+	import { A, Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { CheckCircleSolid, ClockSolid, CloseCircleSolid, QuestionCircleSolid } from 'flowbite-svelte-icons';
 	import type { ContainerSummary } from './docker_types/__generated';
+	import { routes } from './routes';
 	import { capatalizeWord, dateString } from './util';
 
 	export let container: ContainerSummary;
@@ -53,7 +54,13 @@
 			{/if}
 		</div>
 	</TableBodyCell>
-	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}><Heading tag="h5">{name_display}</Heading></TableBodyCell>
+	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}>
+		<A href={routes.container(container.Id ?? '')}>
+			<Heading tag="h5">
+				{name_display}
+			</Heading>
+		</A>
+	</TableBodyCell>
 	<TableBodyCell>
 		<P>{container.Image}</P>
 	</TableBodyCell>

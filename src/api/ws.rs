@@ -38,7 +38,7 @@ pub async fn ws_upgrader(
                 stderr: true,
                 timestamps: true,
                 since: 0,
-                follow: false,
+                follow: true,
                 ..Default::default()
             }),
         );
