@@ -25,10 +25,9 @@ pub struct AppState {
 async fn main() {
     // initialize tracing
     tracing_subscriber::fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "servcur=trace,tower_http=trace,axum::rejection=trace".into()),
-        )
+        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+            "servcur=trace,tower_http=trace,axum::rejection=trace,bollard=debug".into()
+        }))
         .init();
 
     // Init docker api connection
