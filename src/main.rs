@@ -1,6 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use axum::routing::post;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
 
@@ -50,6 +51,10 @@ async fn main() {
     let images_router = Router::new().route("/", get(images));
     let networks_router = Router::new().route("/", get(networks));
 
+    let projects_router = Router::new()
+        .route("/", post(api::projects::new_project_route))
+        .route("/fetch", get(api::projects::fetch_project_route));
+
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
@@ -59,6 +64,7 @@ async fn main() {
         .nest("/containers", containers_router)
         .nest("/images", images_router)
         .nest("/networks", networks_router)
+        .nest("/projects", projects_router)
         .with_state(state)
         .layer(
             CorsLayer::new()
