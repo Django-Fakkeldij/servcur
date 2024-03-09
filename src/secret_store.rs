@@ -1,34 +1,58 @@
-use std::{fs::create_dir_all, path::PathBuf};
+use std::{
+    collections::HashMap,
+    fs::{create_dir_all, File},
+    io::Write,
+    path::PathBuf,
+};
 
 use anyhow::Result;
-use serde::{de::DeserializeOwned, Serialize};
+use serde_json::Value;
 use tokio::fs;
 
+const STORE_LOCATION: &str = "./store/";
+const STORE_FILE: &str = "store.json";
+
 #[derive(Debug, Clone)]
-pub struct SecretStore {
+pub struct Store {
     path: PathBuf,
 }
 
-impl SecretStore {
-    pub fn new(path: PathBuf) -> Result<Self> {
-        create_dir_all(&path)?;
-        Ok(Self { path })
+impl Store {
+    pub fn new(folder: PathBuf, file: PathBuf) -> Result<Self> {
+        create_dir_all(&folder)?;
+        let mut copy = folder.clone();
+        copy.push(file);
+        let mut f = File::create(&copy)?;
+        f.write_all("{}".as_bytes())?;
+        Ok(Self { path: copy })
     }
 
-    pub async fn set(&self, inp: &impl Serialize) -> Result<()> {
-        let contents = serde_json::to_string_pretty(inp)?;
+    pub async fn write(&self, inp: HashMap<String, Value>) -> Result<()> {
+        let contents = serde_json::to_string_pretty(&inp)?;
         Ok(fs::write(&self.path, contents).await?)
     }
 
-    pub async fn get<'a, T: DeserializeOwned>(&self) -> Result<T> {
+    pub async fn read(&self) -> Result<HashMap<String, Value>> {
         let read = fs::read_to_string(&self.path).await?;
-        let val: T = serde_json::from_str(&read)?;
+        let val = serde_json::from_str(&read)?;
         Ok(val)
+    }
+
+    pub async fn insert(&self, key: &str, val: Value) -> Result<()> {
+        let mut read = self.read().await?;
+        read.insert(key.to_owned(), val);
+        self.write(read).await?;
+        Ok(())
+    }
+
+    pub async fn get(&self, key: &str) -> Result<Option<Value>> {
+        let read = self.read().await?;
+        Ok(read.get(key).cloned())
     }
 }
 
-impl Default for SecretStore {
+impl Default for Store {
     fn default() -> Self {
-        SecretStore::new(PathBuf::from("./store/secrets.json")).unwrap()
+        Store::new(PathBuf::from(STORE_LOCATION), PathBuf::from(STORE_FILE)).unwrap()
     }
 }

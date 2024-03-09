@@ -1,0 +1,6 @@
+{
+  "/hooks/onupdate/Website/master": {
+    "location": "/hooks/onupdate/Website/master",
+    "project_name": "Website"
+  }
+}

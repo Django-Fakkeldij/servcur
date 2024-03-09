@@ -20,4 +20,4 @@ futures-util = { version = "0.3.30", default-features = false, features = [
     "std",
 ] }
 hyper = { version = "1.1.0", features = ["full"] }
-anyhow = "1.0"
+anyhow = { version = "1.0.80", features = ["backtrace"] }

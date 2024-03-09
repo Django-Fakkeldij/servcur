@@ -1,11 +1,16 @@
 use std::process::Stdio;
 
+use axum::extract::State;
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tracing::info;
+
+use crate::SharedAppState;
 
 pub const PROJECT_FOLDER: &str = "./projects";
+pub const WEBHOOK_PATH: &str = "/hooks/onupdate";
 
 #[derive(Debug, Deserialize)]
 pub struct NewProject {
@@ -70,14 +75,51 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub async fn new_project_route(Json(project): Json<NewProject>) -> (StatusCode, Json<Value>) {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WebhookLocation {
+    location: String,
+    project_name: String,
+}
+
+pub async fn new_project_route(
+    State(state): State<SharedAppState>,
+    Json(project): Json<NewProject>,
+) -> (StatusCode, Json<Value>) {
     match new_project(&project).await {
-        Ok(_) => (StatusCode::CREATED, Json(json!({}))),
-        Err(e) => (
+        Ok(_) => {}
+        Err(e) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"error": e.to_string()})),
+            )
+        }
+    };
+    info!(?project.name, ?project.branch, "created project / branch");
+
+    let name = &project.name;
+    let branch = &project.branch;
+    let location = WebhookLocation {
+        location: format!("{WEBHOOK_PATH}/{name}/{branch}"),
+        project_name: name.to_owned(),
+    };
+
+    if let Err(e) = state
+        .lock_owned()
+        .await
+        .store
+        .insert(&location.location, serde_json::to_value(&location).unwrap())
+        .await
+    {
+        return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": e.to_string()})),
-        ),
+        );
     }
+    info!(?project.name, ?project.branch, webhook=location.location, "created project / branch webhook");
+    (
+        StatusCode::CREATED,
+        Json(json!({"webhook": location.location})),
+    )
 }
 
 pub async fn fetch_project(name: &str, branch: &str) -> anyhow::Result<()> {

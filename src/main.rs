@@ -9,7 +9,7 @@ use bollard::{
     container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
     volume::ListVolumesOptions, Docker,
 };
-use secret_store::SecretStore;
+use secret_store::Store;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
@@ -22,7 +22,7 @@ pub mod secret_store;
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub docker: Docker,
-    pub secret_store: SecretStore,
+    pub store: Store,
 }
 
 pub type SharedAppState = Arc<Mutex<AppState>>;
@@ -47,7 +47,7 @@ async fn main() {
 
     let state: SharedAppState = Arc::new(Mutex::new(AppState {
         docker,
-        secret_store: Default::default(),
+        store: Default::default(),
     }));
 
     let volumes_router = Router::new().route("/", get(volumes));
