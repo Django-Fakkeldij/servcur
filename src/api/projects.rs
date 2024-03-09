@@ -52,7 +52,7 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
     // Create folder with branch name
     tokio::fs::create_dir_all(&project_branch_folder).await?;
 
-    // Clone git repo
+    // Clone git repo (with a insecure remote, :0 )
     let output = tokio::process::Command::new("git")
         .arg("clone")
         .arg(&create_auth_url(&project.https_url, &project.auth))
