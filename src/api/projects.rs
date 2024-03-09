@@ -2,7 +2,7 @@ use std::process::Stdio;
 
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 pub const PROJECT_FOLDER: &str = "./projects";
@@ -11,13 +11,32 @@ pub const PROJECT_FOLDER: &str = "./projects";
 pub struct NewProject {
     name: String,
     branch: String,
-    git_url: String,
+    https_url: String,
+    auth: Auth,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Auth {
+    None,
+    Token(String),
+}
+
+impl Auth {
+    pub fn is_none(&self) -> bool {
+        matches!(self, Auth::None)
+    }
 }
 
 pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
     // Name invalid
     if project.name.contains('/') || project.name.contains('\\') {
-        return Err(anyhow::Error::msg("Invalid project name"));
+        return Err(anyhow::Error::msg("invalid project name"));
+    }
+
+    // Invalid url
+    if !project.https_url.starts_with("https://") {
+        return Err(anyhow::Error::msg("not an https git url"));
     }
 
     let project_root_folder = format!("{PROJECT_FOLDER}/{}", project.name);
@@ -36,7 +55,7 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
     // Clone git repo
     let output = tokio::process::Command::new("git")
         .arg("clone")
-        .arg(&project.git_url)
+        .arg(&create_auth_url(&project.https_url, &project.auth))
         .arg("-b")
         .arg(&project.branch)
         .current_dir(project_branch_folder)
@@ -102,4 +121,21 @@ pub async fn fetch_project_route(Query(project): Query<FetchProject>) -> (Status
             Json(json!({"error": e.to_string()})),
         ),
     }
+}
+
+pub fn create_auth_url(https_url: &str, auth: &Auth) -> String {
+    if auth.is_none() {
+        return https_url.to_owned();
+    }
+
+    // Prepare url based on auth used
+    let url_end = https_url.replacen("https://", "", 1);
+    let url_auth: &str = match auth {
+        Auth::Token(t) => t,
+        _ => panic!(),
+    };
+
+    let url = format!("https://{url_auth}@{url_end}");
+
+    url
 }

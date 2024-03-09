@@ -9,6 +9,7 @@ use bollard::{
     container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
     volume::ListVolumesOptions, Docker,
 };
+use secret_store::SecretStore;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
@@ -16,10 +17,12 @@ use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
 pub mod api;
+pub mod secret_store;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    state: Docker,
+    pub docker: Docker,
+    pub secret_store: SecretStore,
 }
 
 pub type SharedAppState = Arc<Mutex<AppState>>;
@@ -42,7 +45,10 @@ async fn main() {
         .await
         .expect("Could not connect to Docker daemon (is it running?)");
 
-    let state: SharedAppState = Arc::new(Mutex::new(AppState { state: docker }));
+    let state: SharedAppState = Arc::new(Mutex::new(AppState {
+        docker,
+        secret_store: Default::default(),
+    }));
 
     let volumes_router = Router::new().route("/", get(volumes));
     let containers_router = Router::new()
@@ -91,7 +97,7 @@ async fn root() -> (StatusCode, &'static str) {
 }
 
 async fn docker_sys_info(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state.lock_owned().await.state.info().await.unwrap();
+    let ret = state.lock_owned().await.docker.info().await.unwrap();
     (StatusCode::OK, Json(json!(&ret)))
 }
 
@@ -99,7 +105,7 @@ async fn containers(State(state): State<SharedAppState>) -> (StatusCode, Json<Va
     let ret = state
         .lock_owned()
         .await
-        .state
+        .docker
         .list_containers(Some(ListContainersOptions::<String> {
             all: true,
             ..Default::default()
@@ -113,7 +119,7 @@ async fn images(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>
     let ret = state
         .lock_owned()
         .await
-        .state
+        .docker
         .list_images(Some(ListImagesOptions::<String> {
             all: true,
             ..Default::default()
@@ -127,7 +133,7 @@ async fn volumes(State(state): State<SharedAppState>) -> (StatusCode, Json<Value
     let ret = state
         .lock_owned()
         .await
-        .state
+        .docker
         .list_volumes(Some(ListVolumesOptions::<String> {
             ..Default::default()
         }))
@@ -140,7 +146,7 @@ async fn networks(State(state): State<SharedAppState>) -> (StatusCode, Json<Valu
     let ret = state
         .lock_owned()
         .await
-        .state
+        .docker
         .list_networks(Some(ListNetworksOptions::<String> {
             ..Default::default()
         }))
