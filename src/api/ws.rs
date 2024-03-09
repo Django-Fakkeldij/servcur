@@ -22,7 +22,7 @@ use futures::stream::StreamExt;
 
 use tracing::{error, trace, warn};
 
-use crate::AppState;
+use crate::SharedAppState;
 
 #[derive(Deserialize, Debug)]
 pub struct LogPage {
@@ -30,7 +30,7 @@ pub struct LogPage {
 }
 
 pub async fn ws_upgrader(
-    State(state): State<AppState>,
+    State(state): State<SharedAppState>,
     Query(query): Query<LogPage>,
     Path(id): Path<String>,
     ws: WebSocketUpgrade,
@@ -40,7 +40,7 @@ pub async fn ws_upgrader(
     {
         let since = query.since.unwrap();
         warn!(%since, "Since");
-        stream = state.state.lock_owned().await.logs(
+        stream = state.lock_owned().await.state.logs(
             &id,
             Some(LogsOptions::<String> {
                 stdout: true,

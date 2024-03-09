@@ -19,8 +19,10 @@ pub mod api;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    state: Arc<Mutex<Docker>>,
+    state: Docker,
 }
+
+pub type SharedAppState = Arc<Mutex<AppState>>;
 
 #[tokio::main]
 async fn main() {
@@ -40,9 +42,7 @@ async fn main() {
         .await
         .expect("Could not connect to Docker daemon (is it running?)");
 
-    let state: AppState = AppState {
-        state: Arc::new(Mutex::new(docker)),
-    };
+    let state: SharedAppState = Arc::new(Mutex::new(AppState { state: docker }));
 
     let volumes_router = Router::new().route("/", get(volumes));
     let containers_router = Router::new()
@@ -90,16 +90,16 @@ async fn root() -> (StatusCode, &'static str) {
     (StatusCode::OK, "hi")
 }
 
-async fn docker_sys_info(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
-    let ret = state.state.lock_owned().await.info().await.unwrap();
+async fn docker_sys_info(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
+    let ret = state.lock_owned().await.state.info().await.unwrap();
     (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn containers(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+async fn containers(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
-        .state
         .lock_owned()
         .await
+        .state
         .list_containers(Some(ListContainersOptions::<String> {
             all: true,
             ..Default::default()
@@ -109,11 +109,11 @@ async fn containers(State(state): State<AppState>) -> (StatusCode, Json<Value>) 
     (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn images(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+async fn images(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
-        .state
         .lock_owned()
         .await
+        .state
         .list_images(Some(ListImagesOptions::<String> {
             all: true,
             ..Default::default()
@@ -123,11 +123,11 @@ async fn images(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn volumes(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+async fn volumes(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
-        .state
         .lock_owned()
         .await
+        .state
         .list_volumes(Some(ListVolumesOptions::<String> {
             ..Default::default()
         }))
@@ -136,11 +136,11 @@ async fn volumes(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
     (StatusCode::OK, Json(json!(&ret)))
 }
 
-async fn networks(State(state): State<AppState>) -> (StatusCode, Json<Value>) {
+async fn networks(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
-        .state
         .lock_owned()
         .await
+        .state
         .list_networks(Some(ListNetworksOptions::<String> {
             ..Default::default()
         }))
