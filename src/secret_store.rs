@@ -6,10 +6,13 @@ use std::{
 };
 
 use anyhow::Result;
+use const_format::concatcp;
 use serde_json::Value;
 use tokio::fs;
 
-const STORE_LOCATION: &str = "./store/";
+use crate::config::DATA_FOLDER;
+
+const STORE_LOCATION: &str = concatcp!(DATA_FOLDER, "/store/");
 const STORE_FILE: &str = "store.json";
 
 #[derive(Debug, Clone)]
@@ -22,8 +25,10 @@ impl Store {
         create_dir_all(&folder)?;
         let mut copy = folder.clone();
         copy.push(file);
-        let mut f = File::create(&copy)?;
-        f.write_all("{}".as_bytes())?;
+        if !copy.exists() {
+            let mut f = File::create(&copy)?;
+            f.write_all("{}".as_bytes())?;
+        }
         Ok(Self { path: copy })
     }
 

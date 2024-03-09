@@ -1,16 +1,20 @@
+use std::collections::HashMap;
 use std::process::Stdio;
 
-use axum::extract::State;
+use anyhow::Context;
+use axum::extract::{Path, State};
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use tracing::info;
+use tracing::{error, info};
 
+use crate::config::DATA_FOLDER;
 use crate::SharedAppState;
+use const_format::concatcp;
 
-pub const PROJECT_FOLDER: &str = "./projects";
-pub const WEBHOOK_PATH: &str = "/hooks/onupdate";
+pub const PROJECT_FOLDER: &str = concatcp!(DATA_FOLDER, "/projects");
+pub const WEBHOOK_PATH: &str = "/projects/webhook";
 
 #[derive(Debug, Deserialize)]
 pub struct NewProject {
@@ -63,6 +67,8 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
         .arg(&create_auth_url(&project.https_url, &project.auth))
         .arg("-b")
         .arg(&project.branch)
+        // Makes it so that it doesn't create a folder within the current work-dir
+        .arg(".")
         .current_dir(project_branch_folder)
         .stdin(Stdio::null())
         .stderr(Stdio::null())
@@ -77,8 +83,16 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct WebhookLocation {
-    location: String,
+    uri: String,
     project_name: String,
+    branch: String,
+}
+
+pub fn format_webhook_url(name: &str, branch: &str, absolute: bool) -> String {
+    if absolute {
+        return format!("{WEBHOOK_PATH}/{name}/{branch}");
+    }
+    format!("{name}/{branch}")
 }
 
 pub async fn new_project_route(
@@ -96,18 +110,17 @@ pub async fn new_project_route(
     };
     info!(?project.name, ?project.branch, "created project / branch");
 
-    let name = &project.name;
-    let branch = &project.branch;
     let location = WebhookLocation {
-        location: format!("{WEBHOOK_PATH}/{name}/{branch}"),
-        project_name: name.to_owned(),
+        uri: format_webhook_url(&project.name, &project.branch, true),
+        project_name: project.name.to_owned(),
+        branch: project.branch.to_owned(),
     };
 
     if let Err(e) = state
         .lock_owned()
         .await
         .store
-        .insert(&location.location, serde_json::to_value(&location).unwrap())
+        .insert(&location.uri, serde_json::to_value(&location).unwrap())
         .await
     {
         return (
@@ -115,14 +128,11 @@ pub async fn new_project_route(
             Json(json!({"error": e.to_string()})),
         );
     }
-    info!(?project.name, ?project.branch, webhook=location.location, "created project / branch webhook");
-    (
-        StatusCode::CREATED,
-        Json(json!({"webhook": location.location})),
-    )
+    info!(?project.name, ?project.branch, webhook=location.uri, "created project / branch webhook");
+    (StatusCode::CREATED, Json(json!({"webhook": location.uri})))
 }
 
-pub async fn fetch_project(name: &str, branch: &str) -> anyhow::Result<()> {
+pub async fn pull_project(name: &str, branch: &str) -> anyhow::Result<()> {
     // Name invalid
     if name.contains('/') || name.contains('\\') {
         return Err(anyhow::Error::msg("Invalid project name"));
@@ -134,9 +144,9 @@ pub async fn fetch_project(name: &str, branch: &str) -> anyhow::Result<()> {
         return Err(anyhow::Error::msg("Project/ branch doesn't exist"));
     }
 
-    // Clone git repo
+    // Fetch git repo
     let output = tokio::process::Command::new("git")
-        .arg("fetch")
+        .arg("pull")
         .current_dir(project_branch_folder)
         .stdin(Stdio::null())
         .stderr(Stdio::null())
@@ -150,19 +160,75 @@ pub async fn fetch_project(name: &str, branch: &str) -> anyhow::Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct FetchProject {
+pub struct PullProject {
     name: String,
     branch: String,
 }
 
-pub async fn fetch_project_route(Query(project): Query<FetchProject>) -> (StatusCode, Json<Value>) {
-    match fetch_project(&project.name, &project.branch).await {
+pub async fn pull_project_route(Query(project): Query<PullProject>) -> (StatusCode, Json<Value>) {
+    match pull_project(&project.name, &project.branch).await {
         Ok(_) => (StatusCode::CREATED, Json(json!({}))),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({"error": e.to_string()})),
         ),
     }
+}
+
+pub async fn webhook_route(
+    Path((name, branch)): Path<(String, String)>,
+    State(state): State<SharedAppState>,
+    Json(webhook_body): Json<HashMap<String, Value>>,
+) -> StatusCode {
+    if !(webhook_body.contains_key("before")
+        && webhook_body.contains_key("after")
+        && webhook_body.contains_key("compare"))
+    {
+        return StatusCode::OK;
+    };
+
+    let key = format_webhook_url(&name, &branch, true);
+
+    let val = match state.lock_owned().await.store.get(&key).await {
+        Ok(Some(a)) => a,
+        Ok(None) => {
+            error!(?name, ?branch, "no webhook registered");
+            return StatusCode::NOT_FOUND;
+        }
+        Err(e) => {
+            error!(?e, ?name, ?branch, "error while receiving webhook");
+            return StatusCode::INTERNAL_SERVER_ERROR;
+        }
+    };
+
+    let val = match serde_json::from_value::<WebhookLocation>(val)
+        .context("json value did not have the right type")
+    {
+        Ok(a) => a,
+        Err(e) => {
+            error!(?e, ?name, ?branch, "reading store error");
+            return StatusCode::INTERNAL_SERVER_ERROR;
+        }
+    };
+
+    match pull_project(&val.project_name, &val.branch).await {
+        Ok(_) => info!(
+            name = &val.project_name,
+            branch = &val.branch,
+            "fetched on webhook"
+        ),
+        Err(e) => {
+            error!(
+                ?e,
+                name = &val.project_name,
+                branch = &val.branch,
+                "fetch error"
+            );
+            return StatusCode::INTERNAL_SERVER_ERROR;
+        }
+    }
+
+    StatusCode::OK
 }
 
 pub fn create_auth_url(https_url: &str, auth: &Auth) -> String {
