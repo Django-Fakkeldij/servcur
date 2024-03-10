@@ -1,7 +1,9 @@
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::path::{Path as FsPath, PathBuf};
 use std::process::Stdio;
 
-use anyhow::Context;
+use anyhow::{Context, Result};
 use axum::extract::{Path, State};
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
@@ -10,10 +12,12 @@ use serde_json::{json, Value};
 use tracing::{error, info};
 
 use crate::config::DATA_FOLDER;
+use crate::util::{error_from_stdoutput, run_bash};
 use crate::SharedAppState;
 use const_format::concatcp;
 
 pub const PROJECT_FOLDER: &str = concatcp!(DATA_FOLDER, "/projects");
+
 pub const WEBHOOK_PATH: &str = "/projects/webhook";
 
 #[derive(Debug, Deserialize)]
@@ -160,12 +164,12 @@ pub async fn pull_project(name: &str, branch: &str) -> anyhow::Result<()> {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PullProject {
+pub struct BaseProject {
     name: String,
     branch: String,
 }
 
-pub async fn pull_project_route(Query(project): Query<PullProject>) -> (StatusCode, Json<Value>) {
+pub async fn pull_project_route(Query(project): Query<BaseProject>) -> (StatusCode, Json<Value>) {
     match pull_project(&project.name, &project.branch).await {
         Ok(_) => (StatusCode::CREATED, Json(json!({}))),
         Err(e) => (
@@ -246,4 +250,160 @@ pub fn create_auth_url(https_url: &str, auth: &Auth) -> String {
     let url = format!("https://{url_auth}@{url_end}");
 
     url
+}
+
+pub trait Actions {
+    type R: std::fmt::Debug + Display;
+    fn start(
+        &mut self,
+        dir: &FsPath,
+        project: &BaseProject,
+    ) -> impl std::future::Future<Output = anyhow::Result<Self::R>> + Send;
+    fn stop(
+        &mut self,
+        dir: &FsPath,
+        project: &BaseProject,
+    ) -> impl std::future::Future<Output = anyhow::Result<Self::R>> + Send;
+    fn restart(
+        &mut self,
+        dir: &FsPath,
+        project: &BaseProject,
+    ) -> impl std::future::Future<Output = anyhow::Result<Self::R>> + Send;
+}
+
+pub struct CustomActions {
+    start: String,
+    stop: String,
+    restart: String,
+}
+
+impl Actions for CustomActions {
+    type R = String;
+    async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        let filename = PathBuf::from(format!("start-{}-{}.sh", &project.name, &project.branch));
+        run_bash(&self.start, &filename, dir).await
+    }
+    async fn stop(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        let filename = PathBuf::from(format!("stop-{}-{}.sh", &project.name, &project.branch));
+        run_bash(&self.stop, &filename, dir).await
+    }
+    async fn restart(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        let filename = PathBuf::from(format!("restart-{}-{}.sh", &project.name, &project.branch));
+        run_bash(&self.restart, &filename, dir).await
+    }
+}
+
+pub struct ComposeActions;
+impl Actions for ComposeActions {
+    type R = String;
+    async fn start(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<String> {
+        let output = tokio::process::Command::new("docker")
+            .arg("compose")
+            .arg("up")
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !output.status.success() {
+            return Err(error_from_stdoutput(output)?);
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
+    async fn stop(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<String> {
+        let output = tokio::process::Command::new("docker")
+            .arg("compose")
+            .arg("stop")
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !output.status.success() {
+            return Err(error_from_stdoutput(output)?);
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
+    async fn restart(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<String> {
+        let output = tokio::process::Command::new("docker")
+            .arg("compose")
+            .arg("up")
+            .arg("--force-recreate")
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !output.status.success() {
+            return Err(error_from_stdoutput(output)?);
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
+}
+
+pub struct DockerfileActions {
+    build_id: u32,
+}
+impl Actions for DockerfileActions {
+    type R = String;
+    async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        self.build_id += 1;
+
+        let build_output = tokio::process::Command::new("docker")
+            .arg("build")
+            .arg("-t")
+            .arg(format!(
+                "{}-{}:{}",
+                project.name, project.branch, self.build_id
+            ))
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !build_output.status.success() {
+            return Err(error_from_stdoutput(build_output)?);
+        }
+        let start_output = tokio::process::Command::new("docker")
+            .arg("start")
+            .arg(format!(
+                "{}-{}:{}",
+                project.name, project.branch, self.build_id
+            ))
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !start_output.status.success() {
+            return Err(error_from_stdoutput(start_output)?);
+        }
+        Ok(String::from_utf8(build_output.stdout)?)
+    }
+    async fn stop(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        let output = tokio::process::Command::new("docker")
+            .arg("stop")
+            .arg(format!(
+                "{}-{}:{}",
+                project.name, project.branch, self.build_id
+            ))
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !output.status.success() {
+            return Err(error_from_stdoutput(output)?);
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
+    async fn restart(&mut self, dir: &FsPath, project: &BaseProject) -> Result<String> {
+        let output = tokio::process::Command::new("docker")
+            .arg("restart")
+            .arg(format!(
+                "{}-{}:{}",
+                project.name, project.branch, self.build_id
+            ))
+            .current_dir(dir)
+            .output()
+            .await?;
+        if !output.status.success() {
+            return Err(error_from_stdoutput(output)?);
+        }
+        Ok(String::from_utf8(output.stdout)?)
+    }
+}
+
+pub enum ProjectActions {
+    Start,
+    Stop,
+    Restart,
 }

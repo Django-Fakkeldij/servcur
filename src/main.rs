@@ -21,6 +21,7 @@ use crate::api::projects::webhook_route;
 pub mod api;
 pub mod config;
 pub mod secret_store;
+pub mod util;
 
 #[derive(Debug, Clone)]
 pub struct AppState {

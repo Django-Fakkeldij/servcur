@@ -1,16 +1,12 @@
-use std::{
-    collections::HashMap,
-    fs::{create_dir_all, File},
-    io::Write,
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
 use const_format::concatcp;
+use futures::executor::block_on;
 use serde_json::Value;
 use tokio::fs;
 
-use crate::config::DATA_FOLDER;
+use crate::{config::DATA_FOLDER, util::upsert_file};
 
 const STORE_LOCATION: &str = concatcp!(DATA_FOLDER, "/store/");
 const STORE_FILE: &str = "store.json";
@@ -22,13 +18,7 @@ pub struct Store {
 
 impl Store {
     pub fn new(folder: PathBuf, file: PathBuf) -> Result<Self> {
-        create_dir_all(&folder)?;
-        let mut copy = folder.clone();
-        copy.push(file);
-        if !copy.exists() {
-            let mut f = File::create(&copy)?;
-            f.write_all("{}".as_bytes())?;
-        }
+        let copy = block_on(upsert_file(&folder, &file, "{}"))?;
         Ok(Self { path: copy })
     }
 
