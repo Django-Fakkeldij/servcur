@@ -20,12 +20,13 @@ pub const PROJECT_FOLDER: &str = concatcp!(DATA_FOLDER, "/projects");
 
 pub const WEBHOOK_PATH: &str = "/projects/webhook";
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NewProject {
     name: String,
     branch: String,
     https_url: String,
     auth: Auth,
+    project_kind: ProjectKind,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,7 +42,7 @@ impl Auth {
     }
 }
 
-pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
+pub async fn new_project(project: &NewProject) -> anyhow::Result<PathBuf> {
     // Name invalid
     if project.name.contains('/') || project.name.contains('\\') {
         return Err(anyhow::Error::msg("invalid project name"));
@@ -73,7 +74,7 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
         .arg(&project.branch)
         // Makes it so that it doesn't create a folder within the current work-dir
         .arg(".")
-        .current_dir(project_branch_folder)
+        .current_dir(&project_branch_folder)
         .stdin(Stdio::null())
         .stderr(Stdio::null())
         .stdout(Stdio::null())
@@ -82,14 +83,16 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<()> {
     if !output.success() {
         return Err(anyhow::anyhow!(output.to_string()));
     }
-    Ok(())
+    Ok(PathBuf::from(project_branch_folder))
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct WebhookLocation {
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProjectLocation {
     uri: String,
+    path: PathBuf,
     project_name: String,
     branch: String,
+    project_kind: ProjectKind,
 }
 
 pub fn format_webhook_url(name: &str, branch: &str, absolute: bool) -> String {
@@ -103,8 +106,8 @@ pub async fn new_project_route(
     State(state): State<SharedAppState>,
     Json(project): Json<NewProject>,
 ) -> (StatusCode, Json<Value>) {
-    match new_project(&project).await {
-        Ok(_) => {}
+    let path = match new_project(&project).await {
+        Ok(v) => v,
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
@@ -114,10 +117,12 @@ pub async fn new_project_route(
     };
     info!(?project.name, ?project.branch, "created project / branch");
 
-    let location = WebhookLocation {
+    let location = ProjectLocation {
         uri: format_webhook_url(&project.name, &project.branch, true),
         project_name: project.name.to_owned(),
         branch: project.branch.to_owned(),
+        project_kind: project.project_kind,
+        path,
     };
 
     if let Err(e) = state
@@ -205,7 +210,7 @@ pub async fn webhook_route(
         }
     };
 
-    let val = match serde_json::from_value::<WebhookLocation>(val)
+    let val = match serde_json::from_value::<ProjectLocation>(val)
         .context("json value did not have the right type")
     {
         Ok(a) => a,
@@ -271,6 +276,7 @@ pub trait Actions {
     ) -> impl std::future::Future<Output = anyhow::Result<Self::R>> + Send;
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct CustomActions {
     start: String,
     stop: String,
@@ -293,6 +299,7 @@ impl Actions for CustomActions {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ComposeActions;
 impl Actions for ComposeActions {
     type R = String;
@@ -335,6 +342,7 @@ impl Actions for ComposeActions {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct DockerfileActions {
     build_id: u32,
 }
@@ -345,6 +353,7 @@ impl Actions for DockerfileActions {
 
         let build_output = tokio::process::Command::new("docker")
             .arg("build")
+            .arg(".")
             .arg("-t")
             .arg(format!(
                 "{}-{}:{}",
@@ -357,7 +366,9 @@ impl Actions for DockerfileActions {
             return Err(error_from_stdoutput(build_output)?);
         }
         let start_output = tokio::process::Command::new("docker")
-            .arg("start")
+            .arg("run")
+            .arg("-d")
+            .arg("-t")
             .arg(format!(
                 "{}-{}:{}",
                 project.name, project.branch, self.build_id
@@ -402,8 +413,131 @@ impl Actions for DockerfileActions {
     }
 }
 
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
+pub enum ProjectKind {
+    Dockerfile(DockerfileActions),
+    Compose(ComposeActions),
+    Custom(CustomActions),
+}
+
+impl Actions for ProjectKind {
+    type R = String;
+
+    async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> anyhow::Result<String> {
+        match self {
+            ProjectKind::Dockerfile(a) => a.start(dir, project).await,
+            ProjectKind::Compose(a) => a.start(dir, project).await,
+            ProjectKind::Custom(a) => a.start(dir, project).await,
+        }
+    }
+
+    async fn stop(&mut self, dir: &FsPath, project: &BaseProject) -> anyhow::Result<String> {
+        match self {
+            ProjectKind::Dockerfile(a) => a.stop(dir, project).await,
+            ProjectKind::Compose(a) => a.stop(dir, project).await,
+            ProjectKind::Custom(a) => a.stop(dir, project).await,
+        }
+    }
+
+    async fn restart(&mut self, dir: &FsPath, project: &BaseProject) -> anyhow::Result<String> {
+        match self {
+            ProjectKind::Dockerfile(a) => a.restart(dir, project).await,
+            ProjectKind::Compose(a) => a.restart(dir, project).await,
+            ProjectKind::Custom(a) => a.restart(dir, project).await,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ProjectActions {
     Start,
     Stop,
     Restart,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ProjectActionBody {
+    action: ProjectActions,
+}
+
+#[derive(Debug, Default, Deserialize, Serialize)]
+pub struct BuildLog {
+    output: String,
+    error: Option<String>,
+}
+
+impl BuildLog {
+    fn on_error(err: &str) -> Self {
+        Self {
+            error: Some(err.to_owned()),
+            ..Default::default()
+        }
+    }
+
+    fn on_succes(body: &str) -> Self {
+        Self {
+            output: body.to_owned(),
+            ..Default::default()
+        }
+    }
+}
+
+pub async fn project_action_route(
+    Path((name, branch)): Path<(String, String)>,
+    State(state): State<SharedAppState>,
+    Json(body): Json<ProjectActionBody>,
+) -> (StatusCode, Json<BuildLog>) {
+    let key = format_webhook_url(&name, &branch, true);
+
+    let val = match state.lock_owned().await.store.get(&key).await {
+        Ok(Some(a)) => a,
+        Ok(None) => {
+            error!(?name, ?branch, "no project registered");
+            return (
+                StatusCode::NOT_FOUND,
+                Json(BuildLog::on_error("no project registered")),
+            );
+        }
+        Err(e) => {
+            error!(?e, ?name, ?branch, "error while receiving webhook");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(BuildLog::on_error("error while reading location")),
+            );
+        }
+    };
+
+    let mut val = match serde_json::from_value::<ProjectLocation>(val)
+        .context("json value did not have the right type")
+    {
+        Ok(a) => a,
+        Err(e) => {
+            error!(?e, ?name, ?branch, "reading store error");
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(BuildLog::on_error("reading store error")),
+            );
+        }
+    };
+
+    let project = BaseProject {
+        name: val.project_name,
+        branch: val.branch,
+    };
+    let dir = val.path;
+
+    match match body.action {
+        ProjectActions::Start => val.project_kind.start(&dir, &project).await,
+        ProjectActions::Stop => val.project_kind.stop(&dir, &project).await,
+        ProjectActions::Restart => val.project_kind.restart(&dir, &project).await,
+    } {
+        Ok(out) => (StatusCode::OK, Json(BuildLog::on_succes(&out))),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(BuildLog::on_error(&e.to_string())),
+        ),
+    }
 }

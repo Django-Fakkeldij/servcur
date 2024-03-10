@@ -16,7 +16,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use crate::api::projects::webhook_route;
+use crate::api::projects::{project_action_route, webhook_route};
 
 pub mod api;
 pub mod config;
@@ -64,7 +64,8 @@ async fn main() {
     let projects_router = Router::new()
         .route("/", post(api::projects::new_project_route))
         .route("/pull", get(api::projects::pull_project_route))
-        .route("/webhook/:name/:branch", post(webhook_route));
+        .route("/webhook/:name/:branch", post(webhook_route))
+        .route("/action/:name/:branch", post(project_action_route));
 
     // build our application with a route
     let app = Router::new()
