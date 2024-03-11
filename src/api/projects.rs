@@ -107,15 +107,10 @@ pub fn format_webhook_url(name: &str, branch: &str, absolute: bool) -> String {
 pub async fn new_project_route(
     State(state): State<SharedAppState>,
     Json(project): Json<NewProject>,
-) -> (StatusCode, Json<Value>) {
+) -> Result<(StatusCode, Json<Value>), ApiError> {
     let path = match new_project(&project).await {
         Ok(v) => v,
-        Err(e) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"error": e.to_string()})),
-            )
-        }
+        Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
     };
     info!(?project.name, ?project.branch, "created project / branch");
 
@@ -134,13 +129,10 @@ pub async fn new_project_route(
         .insert(&location.uri, serde_json::to_value(&location).unwrap())
         .await
     {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        );
+        return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e));
     }
     info!(?project.name, ?project.branch, webhook=location.uri, "created project / branch webhook");
-    (StatusCode::CREATED, Json(json!({"webhook": location.uri})))
+    Ok((StatusCode::CREATED, Json(json!({"webhook": location.uri}))))
 }
 
 pub async fn pull_project(name: &str, branch: &str) -> anyhow::Result<()> {
