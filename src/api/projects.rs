@@ -16,6 +16,8 @@ use crate::util::{error_from_stdoutput, run_bash};
 use crate::SharedAppState;
 use const_format::concatcp;
 
+use super::error::ApiError;
+
 pub const PROJECT_FOLDER: &str = concatcp!(DATA_FOLDER, "/projects");
 
 pub const WEBHOOK_PATH: &str = "/projects/webhook";
@@ -174,14 +176,12 @@ pub struct BaseProject {
     branch: String,
 }
 
-pub async fn pull_project_route(Query(project): Query<BaseProject>) -> (StatusCode, Json<Value>) {
-    match pull_project(&project.name, &project.branch).await {
-        Ok(_) => (StatusCode::CREATED, Json(json!({}))),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({"error": e.to_string()})),
-        ),
-    }
+pub async fn pull_project_route(
+    Query(project): Query<BaseProject>,
+) -> Result<(StatusCode, Json<Value>), ApiError> {
+    Ok(pull_project(&project.name, &project.branch)
+        .await
+        .map(|_| (StatusCode::CREATED, Json(json!({}))))?)
 }
 
 pub async fn webhook_route(
@@ -466,21 +466,12 @@ pub struct ProjectActionBody {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BuildLog {
     output: String,
-    error: Option<String>,
 }
 
 impl BuildLog {
-    fn on_error(err: &str) -> Self {
-        Self {
-            error: Some(err.to_owned()),
-            ..Default::default()
-        }
-    }
-
-    fn on_succes(body: &str) -> Self {
+    fn new(body: &str) -> Self {
         Self {
             output: body.to_owned(),
-            ..Default::default()
         }
     }
 }
@@ -489,24 +480,24 @@ pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
-) -> (StatusCode, Json<BuildLog>) {
+) -> Result<(StatusCode, Json<BuildLog>), ApiError> {
     let key = format_webhook_url(&name, &branch, true);
 
     let val = match state.lock_owned().await.store.get(&key).await {
         Ok(Some(a)) => a,
         Ok(None) => {
             error!(?name, ?branch, "no project registered");
-            return (
+            return Err(ApiError::new(
                 StatusCode::NOT_FOUND,
-                Json(BuildLog::on_error("no project registered")),
-            );
+                anyhow::anyhow!("no project registred"),
+            ));
         }
         Err(e) => {
-            error!(?e, ?name, ?branch, "error while receiving webhook");
-            return (
+            error!(?e, ?name, ?branch, "error while receiving location");
+            return Err(ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(BuildLog::on_error("error while reading location")),
-            );
+                anyhow::anyhow!("error while receiving location"),
+            ));
         }
     };
 
@@ -516,10 +507,10 @@ pub async fn project_action_route(
         Ok(a) => a,
         Err(e) => {
             error!(?e, ?name, ?branch, "reading store error");
-            return (
+            return Err(ApiError::new(
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(BuildLog::on_error("reading store error")),
-            );
+                anyhow::anyhow!("reading store error"),
+            ));
         }
     };
 
@@ -534,10 +525,7 @@ pub async fn project_action_route(
         ProjectActions::Stop => val.project_kind.stop(&dir, &project).await,
         ProjectActions::Restart => val.project_kind.restart(&dir, &project).await,
     } {
-        Ok(out) => (StatusCode::OK, Json(BuildLog::on_succes(&out))),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(BuildLog::on_error(&e.to_string())),
-        ),
+        Ok(out) => Ok((StatusCode::OK, Json(BuildLog::new(&out)))),
+        Err(e) => Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
     }
 }
