@@ -9,7 +9,10 @@ use tokio::{
     io::AsyncWriteExt,
 };
 
-use crate::config::DATA_FOLDER;
+use crate::{
+    api::projects::{BuildLog, GitAuth},
+    config::DATA_FOLDER,
+};
 
 pub const TEMP_SCRIPT_FOLDER: &str = concatcp!(DATA_FOLDER, "/temp/scripts");
 
@@ -24,6 +27,23 @@ pub async fn upsert_file(folder: &Path, file: &Path, default: &str) -> anyhow::R
     Ok(copy)
 }
 
+pub fn create_git_auth_url(https_url: &str, auth: &GitAuth) -> String {
+    if auth.is_none() {
+        return https_url.to_owned();
+    }
+
+    // Prepare url based on auth used
+    let url_end = https_url.replacen("https://", "", 1);
+    let url_auth: &str = match auth {
+        GitAuth::Token(t) => t,
+        _ => panic!(),
+    };
+
+    let url = format!("https://{url_auth}@{url_end}");
+
+    url
+}
+
 pub fn error_from_stdoutput(output: Output) -> anyhow::Result<anyhow::Error> {
     Err(anyhow::anyhow!(
         "{}\n\nSTDOUT \n\n{}\n\nSTDERR\n\n{}",
@@ -33,7 +53,7 @@ pub fn error_from_stdoutput(output: Output) -> anyhow::Result<anyhow::Error> {
     ))
 }
 
-pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<String> {
+pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<BuildLog> {
     let folder = TEMP_SCRIPT_FOLDER;
     let file_path = upsert_file(&PathBuf::from(&folder), &PathBuf::from(&filename), script).await?;
 
@@ -46,5 +66,5 @@ pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::
     if !output.status.success() {
         return Err(error_from_stdoutput(output)?);
     }
-    Ok(String::from_utf8(output.stdout)?)
+    BuildLog::from_output(output)
 }
