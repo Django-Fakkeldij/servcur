@@ -1,15 +1,14 @@
 use std::{collections::HashMap, path::PathBuf};
 
 use anyhow::Result;
-use const_format::concatcp;
 use futures::executor::block_on;
 use serde_json::Value;
 use tokio::fs;
 
-use crate::{config::DATA_FOLDER, util::upsert_file};
-
-const STORE_LOCATION: &str = concatcp!(DATA_FOLDER, "/store/");
-const STORE_FILE: &str = "store.json";
+use crate::{
+    config::{STORE_FILE, STORE_LOCATION},
+    util::upsert_file,
+};
 
 #[derive(Debug, Clone)]
 pub struct Store {

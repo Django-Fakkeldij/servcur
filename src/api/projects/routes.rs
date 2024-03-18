@@ -8,12 +8,15 @@ use serde_json::{json, Value};
 use tracing::{error, info};
 
 use crate::api::error::ApiError;
-use crate::api::projects::{format_webhook_url, new_project, Project};
+use crate::api::projects::project_management::new_project;
+use crate::api::projects::Project;
+use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
-use super::{
-    pull_project, Actions, BaseProject, BuildLog, NewProject, ProjectActionBody, ProjectActions,
-};
+use super::project_management::pull_project;
+use super::{BaseProject, BuildLog, NewProject};
+
+use super::actions::{Actions, ProjectActionBody, ProjectActions};
 
 pub async fn pull_project_route(
     Query(project): Query<BaseProject>,

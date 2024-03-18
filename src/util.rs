@@ -3,7 +3,6 @@ use std::{
     process::Output,
 };
 
-use const_format::concatcp;
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
@@ -11,10 +10,8 @@ use tokio::{
 
 use crate::{
     api::projects::{BuildLog, GitAuth},
-    config::DATA_FOLDER,
+    config::{TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
 };
-
-pub const TEMP_SCRIPT_FOLDER: &str = concatcp!(DATA_FOLDER, "/temp/scripts");
 
 pub async fn upsert_file(folder: &Path, file: &Path, default: &str) -> anyhow::Result<PathBuf> {
     create_dir_all(&folder).await?;
@@ -42,6 +39,13 @@ pub fn create_git_auth_url(https_url: &str, auth: &GitAuth) -> String {
     let url = format!("https://{url_auth}@{url_end}");
 
     url
+}
+
+pub fn format_webhook_url(name: &str, branch: &str, absolute: bool) -> String {
+    if absolute {
+        return format!("{WEBHOOK_URL_PATH}/{name}/{branch}");
+    }
+    format!("{name}/{branch}")
 }
 
 pub fn error_from_stdoutput(output: Output) -> anyhow::Result<anyhow::Error> {
