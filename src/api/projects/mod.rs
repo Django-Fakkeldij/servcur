@@ -68,18 +68,6 @@ pub struct Project {
     project_name: String,
     branch: String,
     project_kind: ProjectKind,
-    history: ProjectBuildHistory,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct ProjectBuildHistory {
-    inner: Vec<ProjectBuild>,
-}
-
-#[derive(Debug, Default, Deserialize, Serialize, Clone)]
-pub struct ProjectBuild {
-    status: usize,
-    date_unix_s: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -119,7 +107,7 @@ impl BuildLog {
 
 #[derive(Debug)]
 pub struct BuildHandle {
-    pub project: Project,
+    pub project: BaseProject,
     pub stdout: Stdio,
     pub stderr: Stdio,
     pub command: Command,
@@ -157,7 +145,7 @@ impl BuildExecutor {
                             let time_str = Local::now().to_rfc3339();
                             let filename = format!(
                                 "{}-{}_{}",
-                                handle.project.project_name, handle.project.branch, time_str
+                                handle.project.name, handle.project.branch, time_str
                             );
                             if let Err(e) = v
                                 .direct_to_file(

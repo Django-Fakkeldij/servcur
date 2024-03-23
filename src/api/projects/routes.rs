@@ -42,7 +42,6 @@ pub async fn new_project_route(
         branch: project_init.branch.to_owned(),
         project_kind: project_init.project_kind,
         path,
-        history: Default::default(),
     };
 
     let uri = project.uri.clone();
