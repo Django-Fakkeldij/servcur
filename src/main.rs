@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use api::projects::Project;
 use axum::routing::post;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
@@ -9,22 +11,25 @@ use bollard::{
     container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
     volume::ListVolumesOptions, Docker,
 };
-use secret_store::Store;
 use serde_json::{json, Value};
+use store::Store;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
+use crate::config::{STORE_FILE, STORE_LOCATION};
+
 pub mod api;
 pub mod config;
-pub mod secret_store;
+pub mod store;
 pub mod util;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub docker: Docker,
-    pub store: Store,
+    pub file_store: Store,
+    pub projects: HashMap<String, Project>,
 }
 
 pub type SharedAppState = Arc<Mutex<AppState>>;
@@ -49,7 +54,8 @@ async fn main() {
 
     let state: SharedAppState = Arc::new(Mutex::new(AppState {
         docker,
-        store: Default::default(),
+        file_store: Store::new_str(STORE_LOCATION, STORE_FILE).unwrap(),
+        projects: Default::default(),
     }));
 
     let volumes_router = Router::new().route("/", get(volumes));

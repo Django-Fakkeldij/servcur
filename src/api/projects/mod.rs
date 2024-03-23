@@ -34,7 +34,7 @@ impl GitAuth {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Project {
     uri: String,
     path: PathBuf,
@@ -44,12 +44,12 @@ pub struct Project {
     history: ProjectBuildHistory,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ProjectBuildHistory {
     inner: Vec<ProjectBuild>,
 }
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize, Clone)]
 pub struct ProjectBuild {
     status: usize,
     date_unix_s: usize,

@@ -5,10 +5,7 @@ use futures::executor::block_on;
 use serde_json::Value;
 use tokio::fs;
 
-use crate::{
-    config::{STORE_FILE, STORE_LOCATION},
-    util::upsert_file,
-};
+use crate::util::upsert_file;
 
 #[derive(Debug, Clone)]
 pub struct Store {
@@ -19,6 +16,10 @@ impl Store {
     pub fn new(folder: PathBuf, file: PathBuf) -> Result<Self> {
         let copy = block_on(upsert_file(&folder, &file, "{}"))?;
         Ok(Self { path: copy })
+    }
+
+    pub fn new_str(folder: &str, file: &str) -> Result<Self> {
+        Self::new(PathBuf::from(folder), PathBuf::from(file))
     }
 
     pub async fn write(&self, inp: HashMap<String, Value>) -> Result<()> {
@@ -42,11 +43,5 @@ impl Store {
     pub async fn get(&self, key: &str) -> Result<Option<Value>> {
         let read = self.read().await?;
         Ok(read.get(key).cloned())
-    }
-}
-
-impl Default for Store {
-    fn default() -> Self {
-        Store::new(PathBuf::from(STORE_LOCATION), PathBuf::from(STORE_FILE)).unwrap()
     }
 }

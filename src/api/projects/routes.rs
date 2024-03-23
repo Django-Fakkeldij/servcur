@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
@@ -28,34 +28,32 @@ pub async fn pull_project_route(
 
 pub async fn new_project_route(
     State(state): State<SharedAppState>,
-    Json(project): Json<NewProject>,
+    Json(project_init): Json<NewProject>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let path = match new_project(&project).await {
+    let path = match new_project(&project_init).await {
         Ok(v) => v,
         Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
     };
-    info!(?project.name, ?project.branch, "created project / branch");
+    info!(?project_init.name, ?project_init.branch, "created project / branch");
 
-    let location = Project {
-        uri: format_webhook_url(&project.name, &project.branch, true),
-        project_name: project.name.to_owned(),
-        branch: project.branch.to_owned(),
-        project_kind: project.project_kind,
+    let project = Project {
+        uri: format_webhook_url(&project_init.name, &project_init.branch, true),
+        project_name: project_init.name.to_owned(),
+        branch: project_init.branch.to_owned(),
+        project_kind: project_init.project_kind,
         path,
         history: Default::default(),
     };
 
-    if let Err(e) = state
+    let uri = project.uri.clone();
+    info!(?project_init.name, ?project_init.branch, webhook=project.uri, "created project / branch webhook");
+    state
         .lock_owned()
         .await
-        .store
-        .insert(&location.uri, serde_json::to_value(&location).unwrap())
-        .await
-    {
-        return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e));
-    }
-    info!(?project.name, ?project.branch, webhook=location.uri, "created project / branch webhook");
-    Ok((StatusCode::CREATED, Json(json!({"webhook": location.uri}))))
+        .projects
+        .insert(uri.clone(), project);
+
+    Ok((StatusCode::CREATED, Json(json!({"webhook": uri}))))
 }
 
 pub async fn webhook_route(
@@ -67,30 +65,17 @@ pub async fn webhook_route(
         && webhook_body.contains_key("after")
         && webhook_body.contains_key("compare"))
     {
+        info!(?webhook_body, "received an non relevant webhook");
         return StatusCode::OK;
     };
 
     let key = format_webhook_url(&name, &branch, true);
 
-    let val = match state.lock_owned().await.store.get(&key).await {
-        Ok(Some(a)) => a,
-        Ok(None) => {
+    let val = match state.lock_owned().await.projects.get(&key) {
+        Some(a) => a.clone(),
+        None => {
             error!(?name, ?branch, "no webhook registered");
             return StatusCode::NOT_FOUND;
-        }
-        Err(e) => {
-            error!(?e, ?name, ?branch, "error while receiving webhook");
-            return StatusCode::INTERNAL_SERVER_ERROR;
-        }
-    };
-
-    let val = match serde_json::from_value::<Project>(val)
-        .context("json value did not have the right type")
-    {
-        Ok(a) => a,
-        Err(e) => {
-            error!(?e, ?name, ?branch, "reading store error");
-            return StatusCode::INTERNAL_SERVER_ERROR;
         }
     };
 
@@ -121,33 +106,13 @@ pub async fn project_action_route(
 ) -> Result<(StatusCode, Json<BuildLog>), ApiError> {
     let key = format_webhook_url(&name, &branch, true);
 
-    let val = match state.lock_owned().await.store.get(&key).await {
-        Ok(Some(a)) => a,
-        Ok(None) => {
+    let mut val = match state.lock_owned().await.projects.get(&key) {
+        Some(a) => a.clone(),
+        None => {
             error!(?name, ?branch, "no project registered");
             return Err(ApiError::new(
                 StatusCode::NOT_FOUND,
                 anyhow::anyhow!("no project registred"),
-            ));
-        }
-        Err(e) => {
-            error!(?e, ?name, ?branch, "error while receiving location");
-            return Err(ApiError::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                anyhow::anyhow!("error while receiving location"),
-            ));
-        }
-    };
-
-    let mut val = match serde_json::from_value::<Project>(val)
-        .context("json value did not have the right type")
-    {
-        Ok(a) => a,
-        Err(e) => {
-            error!(?e, ?name, ?branch, "reading store error");
-            return Err(ApiError::new(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                anyhow::anyhow!("reading store error"),
             ));
         }
     };

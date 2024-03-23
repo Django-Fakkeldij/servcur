@@ -28,7 +28,7 @@ pub trait Actions {
     ) -> impl std::future::Future<Output = anyhow::Result<Self::R>> + Send;
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct CustomActions {
     start: String,
     stop: String,
@@ -51,7 +51,7 @@ impl Actions for CustomActions {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ComposeActions;
 impl Actions for ComposeActions {
     type R = BuildLog;
@@ -94,7 +94,7 @@ impl Actions for ComposeActions {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DockerfileActions {
     build_id: u32,
 }
@@ -165,7 +165,7 @@ impl Actions for DockerfileActions {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "snake_case")]
 pub enum ProjectKind {
