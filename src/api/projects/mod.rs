@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::process::Output;
 
-use anyhow::Result;
+use anyhow::{bail, Result};
 
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +31,26 @@ pub enum GitAuth {
 impl GitAuth {
     pub fn is_none(&self) -> bool {
         matches!(self, GitAuth::None)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct Projects(Vec<Project>);
+
+impl Projects {
+    pub fn get(&self, name: &str, branch: &str) -> Option<Project> {
+        self.0
+            .iter()
+            .find(|v| v.project_name == name && v.branch == branch)
+            .cloned()
+    }
+
+    pub fn insert(&mut self, project: Project) -> Result<()> {
+        if self.get(&project.project_name, &project.branch).is_none() {
+            bail!("project already exists");
+        }
+        self.0.push(project);
+        Ok(())
     }
 }
 

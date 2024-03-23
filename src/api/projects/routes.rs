@@ -47,11 +47,13 @@ pub async fn new_project_route(
 
     let uri = project.uri.clone();
     info!(?project_init.name, ?project_init.branch, webhook=project.uri, "created project / branch webhook");
+
     state
         .lock_owned()
         .await
         .projects
-        .insert(uri.clone(), project);
+        .insert(project)
+        .map_err(|e| ApiError::new(StatusCode::CONFLICT, e))?;
 
     Ok((StatusCode::CREATED, Json(json!({"webhook": uri}))))
 }
@@ -69,9 +71,7 @@ pub async fn webhook_route(
         return StatusCode::OK;
     };
 
-    let key = format_webhook_url(&name, &branch, true);
-
-    let val = match state.lock_owned().await.projects.get(&key) {
+    let val = match state.lock_owned().await.projects.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no webhook registered");
@@ -104,9 +104,7 @@ pub async fn project_action_route(
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
 ) -> Result<(StatusCode, Json<BuildLog>), ApiError> {
-    let key = format_webhook_url(&name, &branch, true);
-
-    let mut val = match state.lock_owned().await.projects.get(&key) {
+    let mut val = match state.lock_owned().await.projects.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no project registered");

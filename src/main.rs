@@ -1,8 +1,7 @@
-use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use api::projects::Project;
+use api::projects::Projects;
 use axum::routing::post;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
@@ -29,7 +28,7 @@ pub mod util;
 pub struct AppState {
     pub docker: Docker,
     pub file_store: Store,
-    pub projects: HashMap<String, Project>,
+    pub projects: Projects,
 }
 
 pub type SharedAppState = Arc<Mutex<AppState>>;
