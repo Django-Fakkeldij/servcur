@@ -1,12 +1,19 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::process::Output;
+use std::{path::PathBuf, process::Stdio};
 
 use anyhow::{bail, Result};
 
+use chrono::Local;
 use serde::{Deserialize, Serialize};
+use tokio::process::Command;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+use tracing::{error, warn};
 
 use self::actions::ProjectKind;
-use crate::config::PROJECT_FOLDER;
+use crate::config::{BUILD_LOG_FOLDER, PROJECT_FOLDER};
+use crate::util::upsert_file;
 
 pub mod actions;
 pub mod project_management;
@@ -84,21 +91,99 @@ pub struct BaseProject {
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BuildLog {
     pub status: usize,
-    pub output: String,
+    pub stdout: String,
+    pub stderr: String,
 }
 
 impl BuildLog {
-    pub fn new(status: usize, body: &str) -> Self {
+    pub fn new(status: usize, stdout: &str, stderr: &str) -> Self {
         Self {
             status,
-            output: body.to_owned(),
+            stdout: stdout.to_owned(),
+            stderr: stderr.to_owned(),
         }
     }
 
     pub fn from_output(output: Output) -> Result<Self> {
         Ok(Self {
             status: output.status.code().unwrap_or(1) as usize,
-            output: String::from_utf8(output.stdout)?,
+            stdout: String::from_utf8(output.stdout)?,
+            stderr: String::from_utf8(output.stderr)?,
         })
+    }
+
+    pub async fn direct_to_file(&self, folder: &Path, file: &Path) -> Result<PathBuf> {
+        upsert_file(folder, file, &serde_json::to_string_pretty(&self)?).await
+    }
+}
+
+#[derive(Debug)]
+pub struct BuildHandle {
+    pub project: Project,
+    pub stdout: Stdio,
+    pub stderr: Stdio,
+    pub command: Command,
+}
+
+#[derive(Debug)]
+pub struct BuildExecutor {
+    exec_tx: mpsc::Sender<BuildHandle>,
+    _exec_handle: JoinHandle<()>,
+}
+
+impl BuildExecutor {
+    pub fn new(size: usize) -> Self {
+        let (tx, mut rx) = mpsc::channel::<BuildHandle>(size);
+
+        let _exec_handle = tokio::spawn(async move {
+            loop {
+                let mut handle = if let Some(v) = rx.recv().await {
+                    v
+                } else {
+                    warn!("emtpy recv");
+                    continue;
+                };
+
+                tokio::spawn(async move {
+                    let out = match handle.command.output().await {
+                        Ok(v) => v,
+                        Err(e) => {
+                            error!(?e, "error while executing command");
+                            return;
+                        }
+                    };
+                    match BuildLog::from_output(out) {
+                        Ok(v) => {
+                            let time_str = Local::now().to_rfc3339();
+                            let filename = format!(
+                                "{}-{}_{}",
+                                handle.project.project_name, handle.project.branch, time_str
+                            );
+                            if let Err(e) = v
+                                .direct_to_file(
+                                    &PathBuf::from(BUILD_LOG_FOLDER),
+                                    &PathBuf::from(filename),
+                                )
+                                .await
+                            {
+                                error!(?e, "error while writing to file")
+                            }
+                        }
+                        Err(e) => {
+                            error!(?e, "error while converting to log")
+                        }
+                    };
+                });
+            }
+        });
+
+        Self {
+            _exec_handle,
+            exec_tx: tx,
+        }
+    }
+
+    pub async fn exec(&mut self, handle: BuildHandle) -> Result<()> {
+        self.exec_tx.send(handle).await.map_err(|e| e.into())
     }
 }
