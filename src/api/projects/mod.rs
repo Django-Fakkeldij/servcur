@@ -77,13 +77,13 @@ pub struct BaseProject {
 }
 
 #[derive(Debug, Default, Deserialize, Serialize)]
-pub struct BuildLog {
+pub struct IoLog {
     pub status: usize,
     pub stdout: String,
     pub stderr: String,
 }
 
-impl BuildLog {
+impl IoLog {
     pub fn new(status: usize, stdout: &str, stderr: &str) -> Self {
         Self {
             status,
@@ -106,7 +106,7 @@ impl BuildLog {
 }
 
 #[derive(Debug)]
-pub struct BuildHandle {
+pub struct ProjectIoHandle {
     pub project: BaseProject,
     pub stdout: Stdio,
     pub stderr: Stdio,
@@ -114,14 +114,14 @@ pub struct BuildHandle {
 }
 
 #[derive(Debug)]
-pub struct BuildExecutor {
-    exec_tx: mpsc::Sender<BuildHandle>,
+pub struct ProjectIoExecutor {
+    exec_tx: mpsc::Sender<ProjectIoHandle>,
     _exec_handle: JoinHandle<()>,
 }
 
-impl BuildExecutor {
+impl ProjectIoExecutor {
     pub fn new(size: usize) -> Self {
-        let (tx, mut rx) = mpsc::channel::<BuildHandle>(size);
+        let (tx, mut rx) = mpsc::channel::<ProjectIoHandle>(size);
 
         let _exec_handle = tokio::spawn(async move {
             loop {
@@ -140,7 +140,7 @@ impl BuildExecutor {
                             return;
                         }
                     };
-                    match BuildLog::from_output(out) {
+                    match IoLog::from_output(out) {
                         Ok(v) => {
                             let time_str = Local::now().to_rfc3339();
                             let filename = format!(
@@ -171,7 +171,7 @@ impl BuildExecutor {
         }
     }
 
-    pub async fn exec(&mut self, handle: BuildHandle) -> Result<()> {
+    pub async fn exec(&mut self, handle: ProjectIoHandle) -> Result<()> {
         self.exec_tx.send(handle).await.map_err(|e| e.into())
     }
 }

@@ -14,7 +14,7 @@ use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
 use super::project_management::pull_project;
-use super::{BaseProject, BuildLog, NewProject};
+use super::{BaseProject, IoLog, NewProject};
 
 use super::actions::{Actions, ProjectActionBody, ProjectActions};
 
@@ -102,7 +102,7 @@ pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
-) -> Result<(StatusCode, Json<BuildLog>), ApiError> {
+) -> Result<(StatusCode, Json<IoLog>), ApiError> {
     let mut val = match state.lock_owned().await.projects.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {

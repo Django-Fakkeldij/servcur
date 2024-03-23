@@ -9,7 +9,7 @@ use tokio::{
 };
 
 use crate::{
-    api::projects::{BuildLog, GitAuth},
+    api::projects::{GitAuth, IoLog},
     config::{TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
 };
 
@@ -57,7 +57,7 @@ pub fn error_from_stdoutput(output: Output) -> anyhow::Result<anyhow::Error> {
     ))
 }
 
-pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<BuildLog> {
+pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<IoLog> {
     let folder = TEMP_SCRIPT_FOLDER;
     let file_path = upsert_file(&PathBuf::from(&folder), &PathBuf::from(&filename), script).await?;
 
@@ -70,5 +70,5 @@ pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::
     if !output.status.success() {
         return Err(error_from_stdoutput(output)?);
     }
-    BuildLog::from_output(output)
+    IoLog::from_output(output)
 }

@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::util::{error_from_stdoutput, run_bash};
 
-use super::{BaseProject, BuildLog};
+use super::{BaseProject, IoLog};
 
 pub trait Actions {
     type R: Serialize + DeserializeOwned;
@@ -36,7 +36,7 @@ pub struct CustomActions {
 }
 
 impl Actions for CustomActions {
-    type R = BuildLog;
+    type R = IoLog;
     async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> Result<Self::R> {
         let filename = PathBuf::from(format!("start-{}-{}.sh", &project.name, &project.branch));
         run_bash(&self.start, &filename, dir).await
@@ -54,7 +54,7 @@ impl Actions for CustomActions {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ComposeActions;
 impl Actions for ComposeActions {
-    type R = BuildLog;
+    type R = IoLog;
     async fn start(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<Self::R> {
         let output = tokio::process::Command::new("docker")
             .arg("compose")
@@ -65,7 +65,7 @@ impl Actions for ComposeActions {
         if !output.status.success() {
             return Err(error_from_stdoutput(output)?);
         }
-        BuildLog::from_output(output)
+        IoLog::from_output(output)
     }
     async fn stop(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<Self::R> {
         let output = tokio::process::Command::new("docker")
@@ -77,7 +77,7 @@ impl Actions for ComposeActions {
         if !output.status.success() {
             return Err(error_from_stdoutput(output)?);
         }
-        BuildLog::from_output(output)
+        IoLog::from_output(output)
     }
     async fn restart(&mut self, dir: &FsPath, _project: &BaseProject) -> Result<Self::R> {
         let output = tokio::process::Command::new("docker")
@@ -90,7 +90,7 @@ impl Actions for ComposeActions {
         if !output.status.success() {
             return Err(error_from_stdoutput(output)?);
         }
-        BuildLog::from_output(output)
+        IoLog::from_output(output)
     }
 }
 
@@ -99,7 +99,7 @@ pub struct DockerfileActions {
     build_id: u32,
 }
 impl Actions for DockerfileActions {
-    type R = BuildLog;
+    type R = IoLog;
     async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> Result<Self::R> {
         self.build_id += 1;
 
@@ -131,7 +131,7 @@ impl Actions for DockerfileActions {
         if !start_output.status.success() {
             return Err(error_from_stdoutput(start_output)?);
         }
-        BuildLog::from_output(build_output)
+        IoLog::from_output(build_output)
     }
     async fn stop(&mut self, dir: &FsPath, project: &BaseProject) -> Result<Self::R> {
         let output = tokio::process::Command::new("docker")
@@ -146,7 +146,7 @@ impl Actions for DockerfileActions {
         if !output.status.success() {
             return Err(error_from_stdoutput(output)?);
         }
-        BuildLog::from_output(output)
+        IoLog::from_output(output)
     }
     async fn restart(&mut self, dir: &FsPath, project: &BaseProject) -> Result<Self::R> {
         let output = tokio::process::Command::new("docker")
@@ -161,7 +161,7 @@ impl Actions for DockerfileActions {
         if !output.status.success() {
             return Err(error_from_stdoutput(output)?);
         }
-        BuildLog::from_output(output)
+        IoLog::from_output(output)
     }
 }
 
@@ -175,7 +175,7 @@ pub enum ProjectKind {
 }
 
 impl Actions for ProjectKind {
-    type R = BuildLog;
+    type R = IoLog;
 
     async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> anyhow::Result<Self::R> {
         match self {
