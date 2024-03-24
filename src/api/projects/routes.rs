@@ -14,7 +14,7 @@ use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
 use super::project_management::pull_project;
-use super::{BaseProject, IoLog, NewProject};
+use super::{BaseProject, NewProject};
 
 use super::actions::{Actions, ProjectActionBody, ProjectActions};
 
@@ -48,9 +48,9 @@ pub async fn new_project_route(
     info!(?project_init.name, ?project_init.branch, webhook=project.uri, "created project / branch webhook");
 
     state
+        .projects
         .lock_owned()
         .await
-        .projects
         .insert(project)
         .map_err(|e| ApiError::new(StatusCode::CONFLICT, e))?;
 
@@ -70,7 +70,7 @@ pub async fn webhook_route(
         return StatusCode::OK;
     };
 
-    let val = match state.lock_owned().await.projects.get(&name, &branch) {
+    let val = match state.projects.lock_owned().await.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no webhook registered");
@@ -102,8 +102,8 @@ pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
-) -> Result<(StatusCode, Json<IoLog>), ApiError> {
-    let mut val = match state.lock_owned().await.projects.get(&name, &branch) {
+) -> Result<(StatusCode, Json<BaseProject>), ApiError> {
+    let mut val = match state.projects.lock_owned().await.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no project registered");
@@ -120,12 +120,21 @@ pub async fn project_action_route(
     };
     let dir = val.path;
 
-    match match body.action {
+    let handle = match match body.action {
         ProjectActions::Start => val.project_kind.start(&dir, &project).await,
         ProjectActions::Stop => val.project_kind.stop(&dir, &project).await,
         ProjectActions::Restart => val.project_kind.restart(&dir, &project).await,
     } {
-        Ok(out) => Ok((StatusCode::OK, Json(out))),
-        Err(e) => Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
-    }
+        Ok(out) => out,
+        Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
+    };
+
+    let project = handle.project.clone();
+    state
+        .io_executor
+        .exec(handle)
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e))?;
+
+    Ok((StatusCode::OK, Json(project)))
 }

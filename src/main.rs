@@ -1,7 +1,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use api::projects::Projects;
+use api::projects::{executor::ProjectIoExecutor, Projects};
 use axum::routing::post;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
@@ -26,12 +26,13 @@ pub mod util;
 
 #[derive(Debug, Clone)]
 pub struct AppState {
-    pub docker: Docker,
-    pub file_store: Store,
-    pub projects: Projects,
+    pub docker: Arc<Mutex<Docker>>,
+    pub file_store: Arc<Mutex<Store>>,
+    pub projects: Arc<Mutex<Projects>>,
+    pub io_executor: Arc<ProjectIoExecutor>,
 }
 
-pub type SharedAppState = Arc<Mutex<AppState>>;
+pub type SharedAppState = AppState;
 
 #[tokio::main]
 async fn main() {
@@ -51,11 +52,16 @@ async fn main() {
         .await
         .expect("Could not connect to Docker daemon (is it running?)");
 
-    let state: SharedAppState = Arc::new(Mutex::new(AppState {
-        docker,
-        file_store: Store::new_str(STORE_LOCATION, STORE_FILE).unwrap(),
-        projects: Default::default(),
-    }));
+    let io_executor = Arc::new(ProjectIoExecutor::new(16));
+
+    let state: SharedAppState = AppState {
+        docker: Arc::new(Mutex::new(docker)),
+        file_store: Arc::new(Mutex::new(
+            Store::new_str(STORE_LOCATION, STORE_FILE).unwrap(),
+        )),
+        projects: Arc::new(Mutex::new(Default::default())),
+        io_executor,
+    };
 
     let volumes_router = Router::new().route("/", get(volumes));
     let containers_router = Router::new()
@@ -112,15 +118,15 @@ async fn root() -> (StatusCode, &'static str) {
 }
 
 async fn docker_sys_info(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state.lock_owned().await.docker.info().await.unwrap();
+    let ret = state.docker.lock_owned().await.info().await.unwrap();
     (StatusCode::OK, Json(json!(&ret)))
 }
 
 async fn containers(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
+        .docker
         .lock_owned()
         .await
-        .docker
         .list_containers(Some(ListContainersOptions::<String> {
             all: true,
             ..Default::default()
@@ -132,9 +138,9 @@ async fn containers(State(state): State<SharedAppState>) -> (StatusCode, Json<Va
 
 async fn images(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
+        .docker
         .lock_owned()
         .await
-        .docker
         .list_images(Some(ListImagesOptions::<String> {
             all: true,
             ..Default::default()
@@ -146,9 +152,9 @@ async fn images(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>
 
 async fn volumes(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
+        .docker
         .lock_owned()
         .await
-        .docker
         .list_volumes(Some(ListVolumesOptions::<String> {
             ..Default::default()
         }))
@@ -159,9 +165,9 @@ async fn volumes(State(state): State<SharedAppState>) -> (StatusCode, Json<Value
 
 async fn networks(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
     let ret = state
+        .docker
         .lock_owned()
         .await
-        .docker
         .list_networks(Some(ListNetworksOptions::<String> {
             ..Default::default()
         }))

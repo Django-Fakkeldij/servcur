@@ -1,15 +1,16 @@
 use std::{
     path::{Path, PathBuf},
-    process::Output,
+    process::{Output, Stdio},
 };
 
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
+    process::Command,
 };
 
 use crate::{
-    api::projects::{GitAuth, IoLog},
+    api::projects::GitAuth,
     config::{TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
 };
 
@@ -57,18 +58,18 @@ pub fn error_from_stdoutput(output: Output) -> anyhow::Result<anyhow::Error> {
     ))
 }
 
-pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<IoLog> {
+pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::Result<Command> {
     let folder = TEMP_SCRIPT_FOLDER;
     let file_path = upsert_file(&PathBuf::from(&folder), &PathBuf::from(&filename), script).await?;
 
     // Clone git repo (with a insecure remote, :0 )
-    let output = tokio::process::Command::new("/bin/bash")
+    let mut command = tokio::process::Command::new("/bin/bash");
+    command
         .arg(&file_path)
         .current_dir(workdir)
-        .output()
-        .await?;
-    if !output.status.success() {
-        return Err(error_from_stdoutput(output)?);
-    }
-    IoLog::from_output(output)
+        .stdin(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped());
+
+    Ok(command)
 }

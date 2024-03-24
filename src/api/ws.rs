@@ -40,7 +40,7 @@ pub async fn ws_upgrader(
     {
         let since = query.since.unwrap();
         warn!(%since, "Since");
-        stream = state.lock_owned().await.docker.logs(
+        stream = state.docker.lock_owned().await.logs(
             &id,
             Some(LogsOptions::<String> {
                 stdout: true,
