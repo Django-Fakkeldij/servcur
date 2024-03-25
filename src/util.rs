@@ -3,6 +3,7 @@ use std::{
     process::{Output, Stdio},
 };
 
+use chrono::{DateTime, Utc};
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
@@ -13,6 +14,10 @@ use crate::{
     api::projects::GitAuth,
     config::{TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
 };
+
+pub fn format_time_iso8601(dt: DateTime<Utc>) -> String {
+    dt.format("%FT%H%M%SZ").to_string()
+}
 
 pub async fn upsert_file(folder: &Path, file: &Path, default: &str) -> anyhow::Result<PathBuf> {
     create_dir_all(&folder).await?;

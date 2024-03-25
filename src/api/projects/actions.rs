@@ -128,8 +128,8 @@ impl Actions for DockerfileActions {
             ))
             .current_dir(dir);
 
-        let out =
-            ProjectIoHandle::new(project.clone(), start_command).depends_on_same(build_command);
+        let out = ProjectIoHandle::new(project.clone(), start_command)
+            .depends_on_same_tagged(build_command, "build_step".into());
         Ok(out)
     }
     async fn stop(&mut self, dir: &FsPath, project: &BaseProject) -> Result<ProjectIoHandle> {
