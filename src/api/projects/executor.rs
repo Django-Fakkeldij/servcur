@@ -1,6 +1,6 @@
 use std::{
     path::{Path, PathBuf},
-    process::Output,
+    process::{Output, Stdio},
     sync::Arc,
 };
 
@@ -9,7 +9,13 @@ use serde::{Deserialize, Serialize};
 
 use anyhow::{Context, Result};
 use async_recursion::async_recursion;
-use tokio::{process::Command, sync::mpsc, task::JoinHandle, time::Instant};
+use tokio::{
+    io::{AsyncBufReadExt, BufReader},
+    process::Command,
+    sync::mpsc,
+    task::JoinHandle,
+    time::Instant,
+};
 use tracing::{debug, info, info_span, instrument, warn, Instrument};
 
 use crate::{
@@ -129,11 +135,7 @@ impl ProjectIoExecutor {
     }
 
     pub async fn exec(&self, handle: ProjectIoHandle) -> Result<()> {
-        self.exec_tx
-            .clone()
-            .send(handle)
-            .await
-            .map_err(|e| e.into())
+        self.exec_tx.send(handle).await.map_err(|e| e.into())
     }
 }
 
@@ -143,9 +145,38 @@ async fn execute_handle(mut handle: ProjectIoHandle) -> Result<()> {
         execute_handle(*child).await?;
     }
 
-    let out = handle
+    let mut command_handle = handle
         .command
-        .output()
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .context("spawning child process failed")?;
+
+    let _guard1;
+    if let Some(v) = command_handle.stdout.take() {
+        let reader = BufReader::new(v);
+        _guard1 = tokio::spawn(async move {
+            let mut lines = reader.lines();
+            while let Ok(Some(l)) = lines.next_line().await {
+                println!("stdout reader: {}", l);
+            }
+        });
+    }
+
+    let _guard2;
+    if let Some(v) = command_handle.stderr.take() {
+        let reader = BufReader::new(v);
+        _guard2 = tokio::spawn(async move {
+            let mut lines = reader.lines();
+            while let Ok(Some(l)) = lines.next_line().await {
+                println!("stderr reader: {}", l);
+            }
+        });
+    }
+
+    let out = command_handle
+        .wait_with_output()
         .await
         .context("error while executing command")?;
     let v = IoLog::from_output(out).context("error while converting to log")?;

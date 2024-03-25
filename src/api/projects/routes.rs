@@ -138,3 +138,11 @@ pub async fn project_action_route(
 
     Ok((StatusCode::OK, Json(project)))
 }
+
+pub async fn list_projects_route(
+    State(state): State<SharedAppState>,
+) -> Result<(StatusCode, Json<Vec<Project>>), ApiError> {
+    let projects = state.projects.lock_owned().await.to_owned().0;
+
+    Ok((StatusCode::OK, Json(projects)))
+}
