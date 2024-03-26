@@ -12,7 +12,7 @@ use async_recursion::async_recursion;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    sync::mpsc,
+    sync::{broadcast, mpsc, RwLock},
     task::JoinHandle,
     time::Instant,
 };
@@ -96,8 +96,41 @@ impl ProjectIoHandle {
 }
 
 #[derive(Debug)]
+pub struct OutputHandle {
+    stdout: broadcast::Receiver<String>,
+    stderr: broadcast::Receiver<String>,
+}
+
+impl OutputHandle {
+    /// returns stdout, stderr, self
+    pub fn new() -> (broadcast::Sender<String>, broadcast::Sender<String>, Self) {
+        let (stdout_sender, stdout_recv) = broadcast::channel(128);
+        let (stderr_sender, stderr_recv) = broadcast::channel(128);
+
+        (
+            stdout_sender,
+            stderr_sender,
+            Self {
+                stdout: stdout_recv,
+                stderr: stderr_recv,
+            },
+        )
+    }
+}
+
+impl Clone for OutputHandle {
+    fn clone(&self) -> Self {
+        Self {
+            stdout: self.stdout.resubscribe(),
+            stderr: self.stderr.resubscribe(),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ProjectIoExecutor {
     exec_tx: Arc<mpsc::Sender<ProjectIoHandle>>,
+    output_handles: Arc<RwLock<OutputHandle>>,
     _exec_handle: JoinHandle<()>,
 }
 
