@@ -9,6 +9,7 @@ use crate::config::PROJECT_FOLDER;
 
 pub mod actions;
 pub mod executor;
+pub mod iohandle_ws;
 pub mod project_management;
 pub mod routes;
 

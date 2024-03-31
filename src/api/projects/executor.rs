@@ -104,8 +104,8 @@ struct OutputSendHandle {
 
 #[derive(Debug)]
 pub struct OutputHandle {
-    stdout: broadcast::Receiver<String>,
-    stderr: broadcast::Receiver<String>,
+    pub stdout: broadcast::Receiver<String>,
+    pub stderr: broadcast::Receiver<String>,
 }
 
 impl OutputHandle {
