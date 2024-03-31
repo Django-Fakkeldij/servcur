@@ -66,7 +66,7 @@ async fn main() {
     let volumes_router = Router::new().route("/", get(volumes));
     let containers_router = Router::new()
         .route("/", get(containers))
-        .route("/:id/logs", get(api::ws::ws_upgrader));
+        .route("/:id/logs", get(api::docker_log_ws::ws_upgrader));
     let images_router = Router::new().route("/", get(images));
     let networks_router = Router::new().route("/", get(networks));
 
