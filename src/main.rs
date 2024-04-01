@@ -82,7 +82,10 @@ async fn main() {
             "/action/:name/:branch",
             post(api::projects::routes::project_action_route),
         )
-        .route("/io/:id/:kin", get(api::projects::iohandle_ws::ws_upgrader));
+        .route(
+            "/io/:id/:kind",
+            get(api::projects::iohandle_ws::ws_upgrader),
+        );
 
     // build our application with a route
     let app = Router::new()

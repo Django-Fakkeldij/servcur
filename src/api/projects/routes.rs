@@ -102,7 +102,7 @@ pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
-) -> Result<(StatusCode, Json<BaseProject>), ApiError> {
+) -> Result<(StatusCode, Json<Value>), ApiError> {
     let mut val = match state.projects.lock_owned().await.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
@@ -130,13 +130,19 @@ pub async fn project_action_route(
     };
 
     let project = handle.project.clone();
-    state
+    let id = state
         .io_executor
         .exec(handle)
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e))?;
 
-    Ok((StatusCode::OK, Json(project)))
+    Ok((
+        StatusCode::OK,
+        Json(json!({
+            "project": project,
+            "io_handle_id": id,
+        })),
+    ))
 }
 
 pub async fn list_projects_route(

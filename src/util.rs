@@ -3,7 +3,10 @@ use std::{
     process::{Output, Stdio},
 };
 
+use axum::extract::ws::{Message, WebSocket};
 use chrono::{DateTime, Utc};
+use futures::stream::SplitStream;
+use futures::stream::StreamExt;
 use tokio::{
     fs::{create_dir_all, File},
     io::AsyncWriteExt,
@@ -77,4 +80,8 @@ pub async fn run_bash(script: &str, filename: &Path, workdir: &Path) -> anyhow::
         .stdout(Stdio::piped());
 
     Ok(command)
+}
+
+pub async fn wait_for_ws_close(receiver: &mut SplitStream<WebSocket>) {
+    if let Some(Ok(Message::Close(_))) = receiver.next().await {}
 }

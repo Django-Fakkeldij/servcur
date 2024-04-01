@@ -17,10 +17,11 @@ use std::{borrow::Cow, net::SocketAddr};
 use axum::extract::connect_info::ConnectInfo;
 
 //allows to split the websocket stream into separate TX and RX branches
+use futures::{sink::SinkExt, stream::StreamExt};
 
 use tracing::{error, info, trace, warn};
 
-use crate::{api::error::ApiError, SharedAppState};
+use crate::{api::error::ApiError, util::wait_for_ws_close, SharedAppState};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SubscribeKind {
@@ -59,38 +60,51 @@ pub async fn ws_upgrader(
     .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, anyhow!("ws upgrade error")))
 }
 
-pub async fn handle_socket(
-    mut socket: WebSocket,
-    mut stdstream: Receiver<String>,
-    adress: SocketAddr,
-) {
-    loop {
-        match stdstream.recv().await {
-            Ok(l) => {
-                if let Err(error) = socket.send(WsMessage::Text(l)).await {
-                    error!(%adress, %error, "ws sending err to send; closing ws");
-                    socket
+pub async fn handle_socket(socket: WebSocket, mut stdstream: Receiver<String>, adress: SocketAddr) {
+    let (mut sender, mut receiver) = socket.split();
+
+    let mut jh1 = tokio::spawn(async move {
+        loop {
+            match stdstream.recv().await {
+                Ok(l) => {
+                    if let Err(error) = sender.send(WsMessage::Text(l)).await {
+                        error!(%adress, %error, "ws sending err to send; closing ws");
+                        sender
+                            .send(WsMessage::Close(Some(CloseFrame {
+                                code: close_code::AWAY,
+                                reason: Cow::from("ws sending error"),
+                            })))
+                            .await
+                            .unwrap();
+                        break;
+                    }
+                }
+                Err(RecvError::Lagged(c)) => warn!(%adress, missed = c, "ws stream lagged"),
+                Err(_) => {
+                    info!(%adress, "io handle closed");
+                    sender
                         .send(WsMessage::Close(Some(CloseFrame {
                             code: close_code::AWAY,
-                            reason: Cow::from("ws sending error"),
+                            reason: Cow::from("io closed"),
                         })))
                         .await
                         .unwrap();
                     break;
                 }
             }
-            Err(RecvError::Lagged(c)) => warn!(%adress, missed = c, "ws stream lagged"),
-            Err(_) => {
-                info!(%adress, "io handle closed");
-                socket
-                    .send(WsMessage::Close(Some(CloseFrame {
-                        code: close_code::AWAY,
-                        reason: Cow::from("io closed"),
-                    })))
-                    .await
-                    .unwrap();
-                break;
-            }
+        }
+    });
+
+    let mut jh2 = tokio::spawn(async move {
+        wait_for_ws_close(&mut receiver).await;
+    });
+
+    tokio::select! {
+        _ = (&mut jh1) => {
+            jh2.abort();
+        },
+        _ = (&mut jh2) => {
+            jh1.abort();
         }
     }
 }
