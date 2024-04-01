@@ -10,6 +10,7 @@ use axum::{
 
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{error::RecvError, Receiver};
+use ulid::Ulid;
 
 use std::{borrow::Cow, net::SocketAddr};
 
@@ -33,7 +34,7 @@ pub enum SubscribeKind {
 
 pub async fn ws_upgrader(
     State(state): State<SharedAppState>,
-    Path((id, kind)): Path<(usize, SubscribeKind)>,
+    Path((id, kind)): Path<(Ulid, SubscribeKind)>,
     ws: WebSocketUpgrade,
     ConnectInfo(addr): ConnectInfo<SocketAddr>,
 ) -> Result<impl IntoResponse, ApiError> {

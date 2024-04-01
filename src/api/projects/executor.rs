@@ -5,7 +5,6 @@ use std::{
     sync::Arc,
 };
 
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
 use anyhow::{Context, Result};
@@ -13,45 +12,66 @@ use async_recursion::async_recursion;
 use tokio::{
     io::{AsyncBufReadExt, BufReader},
     process::Command,
-    sync::{broadcast, mpsc, Mutex, RwLock},
+    sync::{
+        broadcast::{self},
+        mpsc, RwLock,
+    },
     task::JoinHandle,
     time::Instant,
 };
-use tracing::{debug, info, info_span, instrument, trace, warn, Instrument};
+use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
+use ulid::Ulid;
 
-use crate::{
-    config::BUILD_LOG_FOLDER,
-    util::{format_time_iso8601, upsert_file},
-};
+use crate::{config::BUILD_LOG_FOLDER, util::upsert_file};
 
 use super::BaseProject;
 
-#[derive(Debug, Default, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct IoLog {
     pub status: usize,
+    pub project: BaseProject,
+    pub tag: Option<String>,
     pub stdout: String,
     pub stderr: String,
+    pub child: Option<Box<Self>>,
 }
 
 impl IoLog {
-    pub fn new(status: usize, stdout: &str, stderr: &str) -> Self {
+    pub fn new(
+        status: usize,
+        project: BaseProject,
+        tag: Option<String>,
+        stdout: String,
+        stderr: String,
+    ) -> Self {
         Self {
             status,
-            stdout: stdout.to_owned(),
-            stderr: stderr.to_owned(),
+            project,
+            tag,
+            stdout,
+            stderr,
+            child: None,
         }
     }
 
-    pub fn from_output(output: Output) -> Result<Self> {
+    pub fn from_output(project: BaseProject, tag: Option<String>, output: Output) -> Result<Self> {
         Ok(Self {
             status: output.status.code().unwrap_or(1) as usize,
+            project,
+            tag,
             stdout: String::from_utf8(output.stdout)?,
             stderr: String::from_utf8(output.stderr)?,
+            child: None,
         })
     }
 
     pub async fn direct_to_file(&self, folder: &Path, file: &Path) -> Result<PathBuf> {
         upsert_file(folder, file, &serde_json::to_string_pretty(&self)?).await
+    }
+
+    pub fn set_child(mut self, child: Box<IoLog>) -> Self {
+        self.child = Some(child);
+        self
     }
 }
 
@@ -136,17 +156,18 @@ impl Clone for OutputHandle {
     }
 }
 
+pub type IoHandleID = Ulid;
+
 #[derive(Debug)]
 pub struct ProjectIoExecutor {
-    build_id_counter: Arc<Mutex<usize>>,
-    exec_tx: Arc<mpsc::Sender<(usize, ProjectIoHandle)>>,
-    output_handles: Arc<RwLock<BTreeMap<usize, OutputHandle>>>,
+    exec_tx: Arc<mpsc::Sender<(IoHandleID, ProjectIoHandle)>>,
+    output_handles: Arc<RwLock<BTreeMap<IoHandleID, OutputHandle>>>,
     _exec_handle: JoinHandle<()>,
 }
 
 impl ProjectIoExecutor {
     pub fn new(size: usize) -> Self {
-        let (tx, mut rx) = mpsc::channel::<(usize, ProjectIoHandle)>(size);
+        let (tx, mut rx) = mpsc::channel::<(IoHandleID, ProjectIoHandle)>(size);
 
         let output_handles = Arc::new(RwLock::new(BTreeMap::new()));
 
@@ -166,7 +187,7 @@ impl ProjectIoExecutor {
                     let output_handles_clone_clone = output_handles_clone.clone();
                     tokio::spawn(async move {
                         output_handles_clone_clone.write().await.insert(id, output);
-                        let _ = execute_handle_manager(handle, output_sender).await;
+                        let _ = execute_handle_manager(id, handle, output_sender).await;
                         output_handles_clone_clone.write().await.remove(&id);
                     });
                 }
@@ -175,19 +196,14 @@ impl ProjectIoExecutor {
         );
 
         Self {
-            build_id_counter: Arc::new(Mutex::new(0)),
             _exec_handle,
             exec_tx: Arc::new(tx),
             output_handles,
         }
     }
 
-    pub async fn exec(&self, handle: ProjectIoHandle) -> Result<usize> {
-        let id = {
-            let mut id = self.build_id_counter.lock().await;
-            *id += 1;
-            *id
-        };
+    pub async fn exec(&self, handle: ProjectIoHandle) -> Result<IoHandleID> {
+        let id = Ulid::new();
         self.exec_tx
             .send((id, handle))
             .await
@@ -197,11 +213,11 @@ impl ProjectIoExecutor {
 
     pub async fn get_handles(
         &self,
-    ) -> tokio::sync::RwLockReadGuard<'_, BTreeMap<usize, OutputHandle>> {
+    ) -> tokio::sync::RwLockReadGuard<'_, BTreeMap<IoHandleID, OutputHandle>> {
         self.output_handles.read().await
     }
 
-    pub async fn get_handle_by_id(&self, id: usize) -> Option<OutputHandle> {
+    pub async fn get_handle_by_id(&self, id: IoHandleID) -> Option<OutputHandle> {
         self.output_handles.read().await.get(&id).cloned()
     }
 }
@@ -210,9 +226,10 @@ impl ProjectIoExecutor {
 async fn execute_handle(
     mut handle: ProjectIoHandle,
     output_handle: OutputSendHandle,
-) -> Result<()> {
-    if let Some(child) = handle.depends_on {
-        execute_handle(*child, output_handle.clone()).await?;
+) -> Result<Box<IoLog>> {
+    let mut child = None;
+    if let Some(child_handle) = handle.depends_on {
+        child = Some(execute_handle(*child_handle, output_handle.clone()).await?);
     }
 
     let mut command_handle = handle
@@ -223,64 +240,103 @@ async fn execute_handle(
         .spawn()
         .context("spawning child process failed")?;
 
-    let _guard1;
+    let mut stdout_collecter = None;
     if let Some(v) = command_handle.stdout.take() {
         let reader = BufReader::new(v);
-        _guard1 = tokio::spawn(async move {
+        stdout_collecter = Some(tokio::spawn(async move {
+            let mut total = String::new();
             let mut lines = reader.lines();
             while let Ok(Some(l)) = lines.next_line().await {
+                total.push_str(&l);
+                total.push('\n');
                 if let Err(e) = output_handle.stdout.send(l) {
                     trace!(?e, "stdout sending error");
                 };
             }
-        });
+            total
+        }));
     }
 
-    let _guard2;
+    let mut stderr_collecter = None;
     if let Some(v) = command_handle.stderr.take() {
         let reader = BufReader::new(v);
-        _guard2 = tokio::spawn(async move {
+        stderr_collecter = Some(tokio::spawn(async move {
+            let mut total = String::new();
             let mut lines = reader.lines();
             while let Ok(Some(l)) = lines.next_line().await {
+                total.push_str(&l);
+                total.push('\n');
                 if let Err(e) = output_handle.stderr.send(l) {
                     trace!(?e, "stdout sending error");
                 };
             }
-        });
+            total
+        }));
     }
 
+    // Does not have any lines left because all are read by the streamers
     let out = command_handle
         .wait_with_output()
         .await
         .context("error while executing command")?;
-    let v = IoLog::from_output(out).context("error while converting to log")?;
-    let time_str = format_time_iso8601(Utc::now());
-    let filename = match handle.tag {
-        Some(v) => format!(
-            "{}-{}-{}-{}.json",
-            handle.project.name, handle.project.branch, v, time_str
-        ),
-        None => format!(
-            "{}-{}-{}.json",
-            handle.project.name, handle.project.branch, time_str
-        ),
-    };
-    v.direct_to_file(&PathBuf::from(BUILD_LOG_FOLDER), &PathBuf::from(filename))
-        .await
-        .context("error while writing to file")?;
 
-    Ok(())
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+
+    if let Some(v) = stdout_collecter {
+        match tokio::try_join!(v) {
+            Ok((s,)) => {
+                stdout = s;
+            }
+            Err(e) => {
+                error!(%e, "stdout join error")
+            }
+        };
+    }
+
+    if let Some(v) = stderr_collecter {
+        match tokio::try_join!(v) {
+            Ok((s,)) => {
+                stderr = s;
+            }
+            Err(e) => {
+                error!(%e, "stdout join error")
+            }
+        };
+    }
+
+    let mut io = IoLog::new(
+        out.status.code().unwrap_or(0) as usize,
+        handle.project,
+        handle.tag,
+        stdout,
+        stderr,
+    );
+
+    if let Some(v) = child {
+        io = io.set_child(v);
+    }
+    Ok(Box::new(io))
 }
 
 #[instrument(err, name = "IoHandleExecute", level = "info")]
 #[allow(clippy::blocks_in_conditions)]
 async fn execute_handle_manager(
+    id: IoHandleID,
     handle: ProjectIoHandle,
     output_handle: OutputSendHandle,
-) -> Result<()> {
-    let t0 = Instant::now();
+) -> Result<Box<IoLog>> {
     info!("started IoHandle");
+    let t0 = Instant::now();
+    // execute
     let ret = execute_handle(handle, output_handle).await;
+    // write to file
+    let filename = format!("{id}.json");
+    if let Ok(v) = &ret {
+        v.direct_to_file(&PathBuf::from(BUILD_LOG_FOLDER), &PathBuf::from(filename))
+            .await
+            .context("error while writing to file")?;
+    }
     let d = t0.elapsed();
     info!(duration=?d, "finished IoHandle");
     ret

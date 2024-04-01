@@ -4,6 +4,7 @@ use anyhow::Result;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum::{extract::Query, http::StatusCode};
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};
 
@@ -13,6 +14,7 @@ use crate::api::projects::Project;
 use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
+use super::executor::IoHandleID;
 use super::project_management::pull_project;
 use super::{BaseProject, NewProject};
 
@@ -98,11 +100,17 @@ pub async fn webhook_route(
     StatusCode::OK
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProjectActionReturn {
+    project: BaseProject,
+    io_id: IoHandleID,
+}
+
 pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
-) -> Result<(StatusCode, Json<Value>), ApiError> {
+) -> Result<(StatusCode, Json<ProjectActionReturn>), ApiError> {
     let mut val = match state.projects.lock_owned().await.get(&name, &branch) {
         Some(a) => a.clone(),
         None => {
@@ -138,10 +146,7 @@ pub async fn project_action_route(
 
     Ok((
         StatusCode::OK,
-        Json(json!({
-            "project": project,
-            "io_handle_id": id,
-        })),
+        Json(ProjectActionReturn { project, io_id: id }),
     ))
 }
 
