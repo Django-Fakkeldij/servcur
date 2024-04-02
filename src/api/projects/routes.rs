@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use anyhow::Result;
 use axum::extract::{Path, State};
@@ -6,11 +7,13 @@ use axum::Json;
 use axum::{extract::Query, http::StatusCode};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tokio::fs;
 use tracing::{error, info};
 
 use crate::api::error::ApiError;
 use crate::api::projects::project_management::new_project;
 use crate::api::projects::Project;
+use crate::config::BUILD_LOG_FOLDER;
 use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
@@ -18,7 +21,28 @@ use super::executor::IoHandleID;
 use super::project_management::pull_project;
 use super::{BaseProject, NewProject};
 
+use anyhow::anyhow;
+
 use super::actions::{Actions, ProjectActionBody, ProjectActions};
+
+pub async fn list_builds() -> Result<Json<Vec<String>>, ApiError> {
+    let mut files_iter = fs::read_dir(&PathBuf::from(BUILD_LOG_FOLDER))
+        .await
+        .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.into()))?;
+
+    let mut files: Vec<String> = Vec::new();
+
+    while let Ok(Some(f)) = files_iter.next_entry().await {
+        files.push(f.file_name().into_string().map_err(|_| {
+            ApiError::new(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                anyhow!("found malformed string"),
+            )
+        })?);
+    }
+
+    Ok(Json(files))
+}
 
 pub async fn pull_project_route(
     Query(project): Query<BaseProject>,
