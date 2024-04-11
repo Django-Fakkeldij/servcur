@@ -28,7 +28,6 @@ pub mod util;
 #[derive(Debug, Clone)]
 pub struct AppState {
     pub docker: Arc<Mutex<Docker>>,
-    pub file_store: Arc<Mutex<Store>>,
     pub projects: ProjectStore,
     pub io_executor: Arc<ProjectIoExecutor>,
 }
@@ -57,10 +56,7 @@ async fn main() {
 
     let state: SharedAppState = AppState {
         docker: Arc::new(Mutex::new(docker)),
-        file_store: Arc::new(Mutex::new(
-            Store::new_str(STORE_LOCATION, STORE_FILE).unwrap(),
-        )),
-        projects: Default::default(),
+        projects: ProjectStore::new(Store::new_str(STORE_LOCATION, STORE_FILE).unwrap()).await,
         io_executor,
     };
 
