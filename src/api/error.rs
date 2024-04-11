@@ -10,6 +10,19 @@ pub struct ApiError {
     pub inner: anyhow::Error,
 }
 
+pub trait ApiErrorVariant<T> {
+    fn to_apierror(self, code: StatusCode) -> Result<T, ApiError>;
+}
+
+impl<T, E> ApiErrorVariant<T> for Result<T, E>
+where
+    E: Into<anyhow::Error>,
+{
+    fn to_apierror(self, code: StatusCode) -> Result<T, ApiError> {
+        self.map_err(|e| ApiError::new(code, e.into()))
+    }
+}
+
 impl ApiError {
     pub fn new(s: StatusCode, e: anyhow::Error) -> Self {
         Self {

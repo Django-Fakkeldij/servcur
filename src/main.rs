@@ -1,17 +1,13 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use api::docker_crud;
 use api::projects::executor::ProjectIoExecutor;
 use api::projects::project_store::ProjectStore;
 use axum::routing::post;
-use axum::Json;
-use axum::{extract::State, http::StatusCode, routing::get, Router};
+use axum::{http::StatusCode, routing::get, Router};
 
-use bollard::{
-    container::ListContainersOptions, image::ListImagesOptions, network::ListNetworksOptions,
-    volume::ListVolumesOptions, Docker,
-};
-use serde_json::{json, Value};
+use bollard::Docker;
 use store::Store;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
@@ -60,12 +56,12 @@ async fn main() {
         io_executor,
     };
 
-    let volumes_router = Router::new().route("/", get(volumes));
+    let volumes_router = Router::new().route("/", get(docker_crud::volumes));
     let containers_router = Router::new()
-        .route("/", get(containers))
+        .route("/", get(docker_crud::containers))
         .route("/:id/logs", get(api::docker_log_ws::ws_upgrader));
-    let images_router = Router::new().route("/", get(images));
-    let networks_router = Router::new().route("/", get(networks));
+    let images_router = Router::new().route("/", get(docker_crud::images));
+    let networks_router = Router::new().route("/", get(docker_crud::networks));
 
     let projects_router = Router::new()
         .route("/", get(api::projects::routes::list_projects_route))
@@ -89,7 +85,7 @@ async fn main() {
     let app = Router::new()
         // `GET /` goes to `root`
         .route("/", get(root))
-        .route("/system", get(docker_sys_info))
+        .route("/system", get(docker_crud::docker_sys_info))
         .nest("/volumes", volumes_router)
         .nest("/containers", containers_router)
         .nest("/images", images_router)
@@ -118,63 +114,4 @@ async fn main() {
 
 async fn root() -> (StatusCode, &'static str) {
     (StatusCode::OK, "hi")
-}
-
-async fn docker_sys_info(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state.docker.lock_owned().await.info().await.unwrap();
-    (StatusCode::OK, Json(json!(&ret)))
-}
-
-async fn containers(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state
-        .docker
-        .lock_owned()
-        .await
-        .list_containers(Some(ListContainersOptions::<String> {
-            all: true,
-            ..Default::default()
-        }))
-        .await
-        .unwrap();
-    (StatusCode::OK, Json(json!(&ret)))
-}
-
-async fn images(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state
-        .docker
-        .lock_owned()
-        .await
-        .list_images(Some(ListImagesOptions::<String> {
-            all: true,
-            ..Default::default()
-        }))
-        .await
-        .unwrap();
-    (StatusCode::OK, Json(json!(&ret)))
-}
-
-async fn volumes(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state
-        .docker
-        .lock_owned()
-        .await
-        .list_volumes(Some(ListVolumesOptions::<String> {
-            ..Default::default()
-        }))
-        .await
-        .unwrap();
-    (StatusCode::OK, Json(json!(&ret)))
-}
-
-async fn networks(State(state): State<SharedAppState>) -> (StatusCode, Json<Value>) {
-    let ret = state
-        .docker
-        .lock_owned()
-        .await
-        .list_networks(Some(ListNetworksOptions::<String> {
-            ..Default::default()
-        }))
-        .await
-        .unwrap();
-    (StatusCode::OK, Json(json!(&ret)))
 }
