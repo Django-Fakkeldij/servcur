@@ -121,6 +121,7 @@ async fn main() {
             CorsLayer::new()
                 // allow requests from any origin
                 .allow_origin(Any)
+                .allow_methods(Any)
                 .allow_headers(Any),
         )
         .layer(TraceLayer::new_for_http());
