@@ -56,12 +56,12 @@ async fn main() {
         io_executor,
     };
 
-    let volumes_router = Router::new().route("/", get(docker_crud::volumes));
+    let volumes_router = Router::new().route("/", get(docker_crud::volume::volumes));
     let containers_router = Router::new()
-        .route("/", get(docker_crud::containers))
+        .route("/", get(docker_crud::container::containers))
         .route("/:id/logs", get(api::docker_log_ws::ws_upgrader));
-    let images_router = Router::new().route("/", get(docker_crud::images));
-    let networks_router = Router::new().route("/", get(docker_crud::networks));
+    let images_router = Router::new().route("/", get(docker_crud::image::images));
+    let networks_router = Router::new().route("/", get(docker_crud::network::networks));
 
     let projects_router = Router::new()
         .route("/", get(api::projects::routes::list_projects_route))
