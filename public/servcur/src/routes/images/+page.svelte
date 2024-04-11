@@ -19,6 +19,7 @@
 				<TableHeadCell>Name</TableHeadCell>
 				<TableHeadCell>Created on</TableHeadCell>
 				<TableHeadCell>Size</TableHeadCell>
+				<TableHeadCell>Actions</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#each $images as image}

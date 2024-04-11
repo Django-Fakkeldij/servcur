@@ -62,7 +62,13 @@
 		</A>
 	</TableBodyCell>
 	<TableBodyCell>
-		<P>{container.Image}</P>
+		<Popover triggeredBy="#imageName-{container.Image?.replace('sha256:', '')}" class="text-center">
+			<Heading tag="h6">Image:</Heading>
+			<P italic>{container.Image}</P>
+		</Popover>
+		<P class="max-w-32 overflow-hidden text-ellipsis whitespace-nowrap" id="imageName-{container.Image?.replace('sha256:', '')}"
+			>{container.Image}</P
+		>
 	</TableBodyCell>
 	<TableBodyCell>
 		<div class="flex gap-2">
