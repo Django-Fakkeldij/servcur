@@ -86,7 +86,8 @@ async fn main() {
         .route(
             "/io/:id/:kind",
             get(api::projects::iohandle_ws::ws_upgrader),
-        );
+        )
+        .route("/io", get(api::projects::routes::list_builds));
 
     // build our application with a route
     let app = Router::new()

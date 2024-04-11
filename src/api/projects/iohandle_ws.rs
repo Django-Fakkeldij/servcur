@@ -20,7 +20,7 @@ use axum::extract::connect_info::ConnectInfo;
 //allows to split the websocket stream into separate TX and RX branches
 use futures::{sink::SinkExt, stream::StreamExt};
 
-use tracing::{error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{api::error::ApiError, util::wait_for_ws_close, SharedAppState};
 
@@ -49,7 +49,7 @@ pub async fn ws_upgrader(
 
     // finalize the upgrade process by returning upgrade callback.
     // we can customize the callback by sending additional info such as address.
-    trace!(address = %addr, "upgrading connection");
+    debug!(address = %addr, io_id = %id, kind = ?kind, "client subscribing to io_handle");
     match kind {
         SubscribeKind::StdOut => Ok::<hyper::Response<axum::body::Body>, ()>(
             ws.on_upgrade(move |socket| handle_socket(socket, handle.stdout, addr)),
