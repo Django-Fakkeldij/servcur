@@ -4,7 +4,7 @@ use std::sync::Arc;
 use api::docker_crud;
 use api::projects::executor::ProjectIoExecutor;
 use api::projects::project_store::ProjectStore;
-use axum::routing::post;
+use axum::routing::{delete, post};
 use axum::{http::StatusCode, routing::get, Router};
 
 use bollard::Docker;
@@ -56,12 +56,37 @@ async fn main() {
         io_executor,
     };
 
-    let volumes_router = Router::new().route("/", get(docker_crud::volume::volumes));
+    let volumes_router = Router::new()
+        .route("/", get(docker_crud::volume::volumes))
+        .route("/:name/remove", delete(docker_crud::volume::remove_volume))
+        .route("/prune", delete(docker_crud::volume::prune_volumes));
     let containers_router = Router::new()
         .route("/", get(docker_crud::container::containers))
+        .route(
+            "/:name/remove",
+            delete(docker_crud::container::remove_container),
+        )
+        .route("/:name/stop", post(docker_crud::container::stop_container))
+        .route(
+            "/:name/start",
+            post(docker_crud::container::start_container),
+        )
+        .route(
+            "/:name/restart",
+            post(docker_crud::container::restart_container),
+        )
         .route("/:id/logs", get(api::docker_log_ws::ws_upgrader));
-    let images_router = Router::new().route("/", get(docker_crud::image::images));
-    let networks_router = Router::new().route("/", get(docker_crud::network::networks));
+    let images_router = Router::new()
+        .route("/", get(docker_crud::image::images))
+        .route("/:name/remove", delete(docker_crud::image::remove_images))
+        .route("/prune", delete(docker_crud::image::prune_images));
+    let networks_router = Router::new()
+        .route("/", get(docker_crud::network::networks))
+        .route(
+            "/:name/remove",
+            delete(docker_crud::network::remove_network),
+        )
+        .route("/prune", delete(docker_crud::network::prune_networks));
 
     let projects_router = Router::new()
         .route("/", get(api::projects::routes::list_projects_route))
