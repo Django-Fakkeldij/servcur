@@ -11,6 +11,7 @@ pub mod actions;
 pub mod executor;
 pub mod iohandle_ws;
 pub mod project_management;
+pub mod project_store;
 pub mod routes;
 
 #[derive(Debug, Deserialize, Serialize)]

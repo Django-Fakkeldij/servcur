@@ -51,9 +51,8 @@ pub async fn new_project_route(
 
     state
         .projects
-        .lock_owned()
-        .await
         .insert(project)
+        .await
         .map_err(|e| ApiError::new(StatusCode::CONFLICT, e))?;
 
     Ok((StatusCode::CREATED, Json(json!({"webhook": uri}))))
@@ -72,7 +71,7 @@ pub async fn webhook_route(
         return StatusCode::OK;
     };
 
-    let val = match state.projects.lock_owned().await.get(&name, &branch) {
+    let val = match state.projects.get(&name, &branch).await {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no webhook registered");
@@ -111,7 +110,7 @@ pub async fn project_action_route(
     State(state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
 ) -> Result<(StatusCode, Json<ProjectActionReturn>), ApiError> {
-    let mut val = match state.projects.lock_owned().await.get(&name, &branch) {
+    let mut val = match state.projects.get(&name, &branch).await {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no project registered");
@@ -153,7 +152,7 @@ pub async fn project_action_route(
 pub async fn list_projects_route(
     State(state): State<SharedAppState>,
 ) -> Result<(StatusCode, Json<Vec<Project>>), ApiError> {
-    let projects = state.projects.lock_owned().await.to_owned().0;
+    let projects = state.projects.get_all().await.0;
 
     Ok((StatusCode::OK, Json(projects)))
 }

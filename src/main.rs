@@ -1,7 +1,8 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use api::projects::{executor::ProjectIoExecutor, Projects};
+use api::projects::executor::ProjectIoExecutor;
+use api::projects::project_store::ProjectStore;
 use axum::routing::post;
 use axum::Json;
 use axum::{extract::State, http::StatusCode, routing::get, Router};
@@ -28,7 +29,7 @@ pub mod util;
 pub struct AppState {
     pub docker: Arc<Mutex<Docker>>,
     pub file_store: Arc<Mutex<Store>>,
-    pub projects: Arc<Mutex<Projects>>,
+    pub projects: ProjectStore,
     pub io_executor: Arc<ProjectIoExecutor>,
 }
 
@@ -59,7 +60,7 @@ async fn main() {
         file_store: Arc::new(Mutex::new(
             Store::new_str(STORE_LOCATION, STORE_FILE).unwrap(),
         )),
-        projects: Arc::new(Mutex::new(Default::default())),
+        projects: Default::default(),
         io_executor,
     };
 
