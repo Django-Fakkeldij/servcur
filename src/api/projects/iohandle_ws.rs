@@ -52,10 +52,10 @@ pub async fn ws_upgrader(
     debug!(address = %addr, io_id = %id, kind = ?kind, "client subscribing to io_handle");
     match kind {
         SubscribeKind::StdOut => Ok::<hyper::Response<axum::body::Body>, ()>(
-            ws.on_upgrade(move |socket| handle_socket(socket, handle.stdout, addr)),
+            ws.on_upgrade(move |socket| handle_socket(socket, handle.0.stdout, addr)),
         ),
         SubscribeKind::StdErr => Ok::<hyper::Response<axum::body::Body>, ()>(
-            ws.on_upgrade(move |socket| handle_socket(socket, handle.stderr, addr)),
+            ws.on_upgrade(move |socket| handle_socket(socket, handle.0.stderr, addr)),
         ),
     }
     .map_err(|_| ApiError::new(StatusCode::BAD_REQUEST, anyhow!("ws upgrade error")))

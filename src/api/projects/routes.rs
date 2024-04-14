@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::fs;
 use tracing::{error, info};
+use ulid::Ulid;
 
 use crate::api::error::ApiError;
 use crate::api::projects::project_management::new_project;
@@ -42,6 +43,21 @@ pub async fn list_builds() -> Result<Json<Vec<String>>, ApiError> {
     }
 
     Ok(Json(files))
+}
+pub async fn list_current_builds(
+    State(state): State<SharedAppState>,
+) -> Result<Json<BTreeMap<Ulid, BaseProject>>, ApiError> {
+    let s;
+
+    {
+        s = state.io_executor.get_handles().await.clone();
+    }
+
+    Ok(Json(
+        s.into_iter()
+            .map(|(k, v)| (k, (v.1).clone()))
+            .collect::<BTreeMap<_, _>>(),
+    ))
 }
 
 pub async fn pull_project_route(
@@ -95,7 +111,7 @@ pub async fn webhook_route(
         return StatusCode::OK;
     };
 
-    let val = match state.projects.get(&name, &branch).await {
+    let val = match state.projects.get_owned(&name, &branch).await {
         Some(a) => a.clone(),
         None => {
             error!(?name, ?branch, "no webhook registered");
@@ -131,11 +147,12 @@ pub struct ProjectActionReturn {
 
 pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
-    State(state): State<SharedAppState>,
+    State(mut state): State<SharedAppState>,
     Json(body): Json<ProjectActionBody>,
 ) -> Result<(StatusCode, Json<ProjectActionReturn>), ApiError> {
-    let mut val = match state.projects.get(&name, &branch).await {
-        Some(a) => a.clone(),
+    let mut all_projects = state.projects.get_mut().await;
+    let project = match all_projects.get_mut(&name, &branch) {
+        Some(a) => a,
         None => {
             error!(?name, ?branch, "no project registered");
             return Err(ApiError::new(
@@ -145,16 +162,16 @@ pub async fn project_action_route(
         }
     };
 
-    let project = BaseProject {
-        name: val.project_name,
-        branch: val.branch,
+    let base_project = BaseProject {
+        name: project.project_name.clone(),
+        branch: project.branch.clone(),
     };
-    let dir = val.path;
+    let dir = project.path.clone();
 
     let handle = match match body.action {
-        ProjectActions::Start => val.project_kind.start(&dir, &project).await,
-        ProjectActions::Stop => val.project_kind.stop(&dir, &project).await,
-        ProjectActions::Restart => val.project_kind.restart(&dir, &project).await,
+        ProjectActions::Start => project.project_kind.start(&dir, &base_project).await,
+        ProjectActions::Stop => project.project_kind.stop(&dir, &base_project).await,
+        ProjectActions::Restart => project.project_kind.restart(&dir, &base_project).await,
     } {
         Ok(out) => out,
         Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),

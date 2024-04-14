@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
 	import { A, Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { CheckCircleSolid, ClockSolid, CloseCircleSolid, QuestionCircleSolid } from 'flowbite-svelte-icons';
 	import Actions from './Actions.svelte';
 	import { API_ROUTES } from './api';
 	import type { ContainerSummary } from './docker_types/__generated';
 	import { routes } from './routes';
-	import { capatalizeWord, dateString } from './util';
+	import { capatalizeWord, dateString, makeId } from './util';
 
 	export let container: ContainerSummary;
 
@@ -40,27 +39,30 @@
 	}
 	$: containerState = getContainerState(container.State ?? '');
 
+	$: visible = true;
 	async function onDelete() {
 		await fetch(API_ROUTES.container_remove(container.Names?.at(0)!.replaceAll('/', '')!), {
 			method: 'DELETE',
 		}).catch((e) => console.error(e));
-		await invalidateAll();
+		visible = false;
 	}
+	$: containerId = makeId('containerstate', container.Id!);
+	$: imageId = makeId('imageName', container.Image?.replace('sha256:', '') ?? '');
 </script>
 
-<TableBodyRow>
+<TableBodyRow class={visible ? 'visible' : 'hidden'}>
 	<TableBodyCell tdClass={spacing ? 'pl-10' : undefined}>
-		<Popover triggeredBy="#containerstate-{container.Id}" class="text-center">
+		<Popover triggeredBy="#{containerId}" class="text-center">
 			<Heading tag="h6" color={containerState.tailwind_color}>{containerState.label}</Heading>
 			<P>Created on {dateString(created_at)}</P>
 		</Popover>
 		<div class="flex min-w-min items-center gap-2 {containerState.tailwind_color}">
 			{#if container.State === 'exited'}
-				<CloseCircleSolid id="containerstate-{container.Id}" />
+				<CloseCircleSolid id={containerId} />
 			{:else if container.State === 'running'}
-				<CheckCircleSolid id="containerstate-{container.Id}" />
+				<CheckCircleSolid id={containerId} />
 			{:else}
-				<QuestionCircleSolid id="containerstate-{container.Id}" />
+				<QuestionCircleSolid id={containerId} />
 			{/if}
 		</div>
 	</TableBodyCell>
@@ -72,13 +74,11 @@
 		</A>
 	</TableBodyCell>
 	<TableBodyCell>
-		<Popover triggeredBy="#imageName-{container.Image?.replace('sha256:', '')}" class="text-center">
+		<Popover triggeredBy="#{imageId}" class="text-center">
 			<Heading tag="h6">Image:</Heading>
 			<P italic>{container.Image}</P>
 		</Popover>
-		<P class="max-w-32 overflow-hidden text-ellipsis whitespace-nowrap" id="imageName-{container.Image?.replace('sha256:', '')}"
-			>{container.Image}</P
-		>
+		<P class="max-w-32 overflow-hidden text-ellipsis whitespace-nowrap" id={imageId}>{container.Image}</P>
 	</TableBodyCell>
 	<TableBodyCell>
 		<div class="flex gap-2">

@@ -40,15 +40,24 @@ impl GitAuth {
 pub struct Projects(Vec<Project>);
 
 impl Projects {
-    pub fn get(&self, name: &str, branch: &str) -> Option<Project> {
+    pub fn get_owned(&self, name: &str, branch: &str) -> Option<Project> {
         self.0
             .iter()
             .find(|v| v.project_name == name && v.branch == branch)
             .cloned()
     }
 
+    pub fn get_mut(&mut self, name: &str, branch: &str) -> Option<&mut Project> {
+        self.0
+            .iter_mut()
+            .find(|v| v.project_name == name && v.branch == branch)
+    }
+
     pub fn insert(&mut self, project: Project) -> Result<()> {
-        if self.get(&project.project_name, &project.branch).is_some() {
+        if self
+            .get_owned(&project.project_name, &project.branch)
+            .is_some()
+        {
             bail!("project already exists");
         }
         self.0.push(project);

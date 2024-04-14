@@ -100,11 +100,11 @@ impl Actions for ComposeActions {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct DockerfileActions {
-    build_id: u32,
+    image_version: u32,
 }
 impl Actions for DockerfileActions {
     async fn start(&mut self, dir: &FsPath, project: &BaseProject) -> Result<ProjectIoHandle> {
-        self.build_id += 1;
+        self.image_version += 1;
 
         let mut build_command = Command::new("docker");
         build_command
@@ -113,7 +113,7 @@ impl Actions for DockerfileActions {
             .arg("-t")
             .arg(format!(
                 "{}-{}:{}",
-                project.name, project.branch, self.build_id
+                project.name, project.branch, self.image_version
             ))
             .current_dir(dir);
 
@@ -121,10 +121,15 @@ impl Actions for DockerfileActions {
         start_command
             .arg("run")
             .arg("-d")
+            .arg("--name")
+            .arg(format!(
+                "{}-{}-{}",
+                project.name, project.branch, self.image_version
+            ))
             .arg("-t")
             .arg(format!(
                 "{}-{}:{}",
-                project.name, project.branch, self.build_id
+                project.name, project.branch, self.image_version
             ))
             .current_dir(dir);
 
@@ -137,8 +142,8 @@ impl Actions for DockerfileActions {
         command
             .arg("stop")
             .arg(format!(
-                "{}-{}:{}",
-                project.name, project.branch, self.build_id
+                "{}-{}-{}",
+                project.name, project.branch, self.image_version
             ))
             .current_dir(dir)
             .output()
@@ -151,7 +156,7 @@ impl Actions for DockerfileActions {
             .arg("restart")
             .arg(format!(
                 "{}-{}:{}",
-                project.name, project.branch, self.build_id
+                project.name, project.branch, self.image_version
             ))
             .current_dir(dir)
             .output()

@@ -161,7 +161,7 @@ pub type IoHandleID = Ulid;
 #[derive(Debug)]
 pub struct ProjectIoExecutor {
     exec_tx: Arc<mpsc::Sender<(IoHandleID, ProjectIoHandle)>>,
-    output_handles: Arc<RwLock<BTreeMap<IoHandleID, OutputHandle>>>,
+    output_handles: Arc<RwLock<BTreeMap<IoHandleID, (OutputHandle, BaseProject)>>>,
     _exec_handle: JoinHandle<()>,
 }
 
@@ -186,7 +186,10 @@ impl ProjectIoExecutor {
                     let (output_sender, output) = OutputHandle::new();
                     let output_handles_clone_clone = output_handles_clone.clone();
                     tokio::spawn(async move {
-                        output_handles_clone_clone.write().await.insert(id, output);
+                        output_handles_clone_clone
+                            .write()
+                            .await
+                            .insert(id, (output, handle.project.clone()));
                         let _ = execute_handle_manager(id, handle, output_sender).await;
                         output_handles_clone_clone.write().await.remove(&id);
                     });
@@ -213,11 +216,11 @@ impl ProjectIoExecutor {
 
     pub async fn get_handles(
         &self,
-    ) -> tokio::sync::RwLockReadGuard<'_, BTreeMap<IoHandleID, OutputHandle>> {
+    ) -> tokio::sync::RwLockReadGuard<'_, BTreeMap<IoHandleID, (OutputHandle, BaseProject)>> {
         self.output_handles.read().await
     }
 
-    pub async fn get_handle_by_id(&self, id: IoHandleID) -> Option<OutputHandle> {
+    pub async fn get_handle_by_id(&self, id: IoHandleID) -> Option<(OutputHandle, BaseProject)> {
         self.output_handles.read().await.get(&id).cloned()
     }
 }

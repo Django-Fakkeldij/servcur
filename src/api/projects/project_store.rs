@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{Mutex, RwLock, RwLockWriteGuard};
 
 use crate::store::Store;
 
@@ -24,8 +24,12 @@ impl ProjectStore {
         }
     }
 
-    pub async fn get(&self, name: &str, branch: &str) -> Option<Project> {
-        self.inner.read().await.get(name, branch)
+    pub async fn get_owned(&self, name: &str, branch: &str) -> Option<Project> {
+        self.inner.read().await.get_owned(name, branch)
+    }
+
+    pub async fn get_mut(&mut self) -> RwLockWriteGuard<Projects> {
+        self.inner.write().await
     }
 
     pub async fn insert(&self, project: Project) -> Result<()> {

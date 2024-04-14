@@ -13,15 +13,27 @@
 	$: created_at = new Date((image.Created ?? 0) * 1000);
 	$: fileSize = fileSizeMagnitudeBytes(image.Size);
 
+	$: visible = true;
 	async function onDelete() {
-		await fetch(API_ROUTES.image_remove(image.Id), {
+		let n = image.RepoTags.length !== 0 ? image.RepoTags[0] : image.Id;
+		let ret = await fetch(API_ROUTES.image_remove(n), {
 			method: 'DELETE',
-		}).catch((e) => console.error(e));
+		})
+			.then((v) => v.text())
+			.catch((e) => {
+				console.error(e);
+			});
 		await invalidateAll();
+		if (ret && ret.includes('Untagged')) {
+			visible = true;
+			alert('Image was just untagged and not deleted.');
+		} else {
+			visible = false;
+		}
 	}
 </script>
 
-<TableBodyRow>
+<TableBodyRow class={visible ? 'visible' : 'hidden'}>
 	<TableBodyCell>
 		<Heading tag="h5" id={makeId('imageName', id)}>
 			{name_display.length === 0 ? '<none>' : name_display}
