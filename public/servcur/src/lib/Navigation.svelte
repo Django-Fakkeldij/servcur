@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { Sidebar, SidebarBrand, SidebarGroup, SidebarItem, SidebarWrapper } from 'flowbite-svelte';
-	import { ChartPieSolid, CodeForkSolid, DatabaseSolid, FileCodeSolid, GridSolid } from 'flowbite-svelte-icons';
+	import { ChartPieSolid, CodeForkSolid, DatabaseSolid, FileCodeSolid, GridSolid, ReceiptSolid } from 'flowbite-svelte-icons';
 	import { routes } from './routes';
 
 	$: activeUrl = '/' + $page.url.pathname.split('/')[1];
@@ -28,6 +28,13 @@
 					/>
 				</svelte:fragment>
 			</SidebarItem>
+			<SidebarItem label="Projects" href={routes.projects}>
+				<svelte:fragment slot="icon">
+					<FileCodeSolid
+						class="h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white"
+					/>
+				</svelte:fragment>
+			</SidebarItem>
 			<SidebarItem label="Containers" href={routes.containers}>
 				<svelte:fragment slot="icon">
 					<GridSolid
@@ -37,7 +44,7 @@
 			</SidebarItem>
 			<SidebarItem label="Images" href={routes.images}>
 				<svelte:fragment slot="icon">
-					<FileCodeSolid
+					<ReceiptSolid
 						class="h-5 w-5 text-gray-500 transition duration-75 group-hover:text-gray-900 dark:text-gray-400 dark:group-hover:text-white"
 					/>
 				</svelte:fragment>

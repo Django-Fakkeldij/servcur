@@ -48,6 +48,7 @@
 				<TableHeadCell>Image</TableHeadCell>
 				<TableHeadCell id="portSyntax">Ports</TableHeadCell>
 				<TableHeadCell>Status</TableHeadCell>
+				<TableHeadCell>Actions</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#each containers_no_stack as container}

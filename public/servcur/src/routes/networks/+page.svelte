@@ -18,6 +18,7 @@
 			<TableHead>
 				<TableHeadCell>Name</TableHeadCell>
 				<TableHeadCell>Created on</TableHeadCell>
+				<TableHeadCell>Actions</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#each $networks as network}

@@ -4,6 +4,7 @@ export const API_WS_URL = `ws://${API_HOST}` as const;
 
 export const API_ROUTES = {
 	system: `${API_URL}/system` as const,
+	projects: `${API_URL}/projects` as const,
 	containers: `${API_URL}/containers` as const,
 	containers_logs_ws: (name: string, since: number) => `${API_WS_URL}/containers/${name}/logs?since=${since}` as const,
 	container_remove: (name: string) => `${API_URL}/containers/${name}/remove` as const,

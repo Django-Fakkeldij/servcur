@@ -1,6 +1,9 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import { A, Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { CheckCircleSolid, ClockSolid, CloseCircleSolid, QuestionCircleSolid } from 'flowbite-svelte-icons';
+	import Actions from './Actions.svelte';
+	import { API_ROUTES } from './api';
 	import type { ContainerSummary } from './docker_types/__generated';
 	import { routes } from './routes';
 	import { capatalizeWord, dateString } from './util';
@@ -36,6 +39,13 @@
 		}
 	}
 	$: containerState = getContainerState(container.State ?? '');
+
+	async function onDelete() {
+		await fetch(API_ROUTES.container_remove(container.Names?.at(0)!.replaceAll('/', '')!), {
+			method: 'DELETE',
+		}).catch((e) => console.error(e));
+		await invalidateAll();
+	}
 </script>
 
 <TableBodyRow>
@@ -83,5 +93,8 @@
 		<Badge color={containerState.badge_color} class="gap-2 text-nowrap p-2">
 			<ClockSolid size="sm" />{container.Status}
 		</Badge>
+	</TableBodyCell>
+	<TableBodyCell>
+		<Actions OnDelete={onDelete} />
 	</TableBodyCell>
 </TableBodyRow>
