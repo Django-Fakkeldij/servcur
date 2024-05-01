@@ -18,13 +18,12 @@ use crate::config::BUILD_LOG_FOLDER;
 use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
+use super::actions::ActionCommand;
 use super::executor::IoHandleID;
 use super::project_management::pull_project;
 use super::{BaseProject, NewProject};
 
 use anyhow::anyhow;
-
-use super::actions::{Actions, ProjectActionBody, ProjectActions};
 
 pub async fn list_builds() -> Result<Json<Vec<String>>, ApiError> {
     let mut files_iter = fs::read_dir(&PathBuf::from(BUILD_LOG_FOLDER))
@@ -148,7 +147,7 @@ pub struct ProjectActionReturn {
 pub async fn project_action_route(
     Path((name, branch)): Path<(String, String)>,
     State(mut state): State<SharedAppState>,
-    Json(body): Json<ProjectActionBody>,
+    Json(body): Json<ActionCommand>,
 ) -> Result<(StatusCode, Json<ProjectActionReturn>), ApiError> {
     let mut all_projects = state.projects.get_mut().await;
     let project = match all_projects.get_mut(&name, &branch) {
@@ -168,11 +167,7 @@ pub async fn project_action_route(
     };
     let dir = project.path.clone();
 
-    let handle = match match body.action {
-        ProjectActions::Start => project.project_kind.start(&dir, &base_project).await,
-        ProjectActions::Stop => project.project_kind.stop(&dir, &base_project).await,
-        ProjectActions::Restart => project.project_kind.restart(&dir, &base_project).await,
-    } {
+    let handle = match body.try_exec(&dir, &base_project, project).await {
         Ok(out) => out,
         Err(e) => return Err(ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e)),
     };
