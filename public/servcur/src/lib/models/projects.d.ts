@@ -7,6 +7,16 @@ export interface ProjectGet {
 }
 
 export type ProjectKind = {
-	type: 'dockerfile';
+	type: 'DockerFile';
 	image_version: number;
 };
+
+export type DockerFileCommands = 'Build' | 'Start' | 'Stop';
+
+export interface ProjectActionReturn {
+	project: {
+		name: string;
+		branch: string;
+	};
+	io_id: string;
+}

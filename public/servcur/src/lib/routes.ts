@@ -4,6 +4,7 @@ export const routes = {
 	projects: '/projects' as const,
 	containers: '/containers' as const,
 	container: (id: string) => `/containers/${id}` as const,
+	project: (name: string, branch: string) => `/projects/${name}/${branch}` as const,
 	images: '/images' as const,
 	volumes: '/volumes' as const,
 	networks: '/networks' as const,

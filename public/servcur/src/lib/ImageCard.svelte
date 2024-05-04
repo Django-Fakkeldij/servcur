@@ -9,7 +9,7 @@
 	export let image: ImageSummary;
 
 	$: id = image.Id.replace('sha256:', '');
-	$: name_display = image.RepoTags?.reduce((total: string, current) => total + ' ' + current, '');
+	$: name_display = image.RepoTags?.reverse().reduce((total: string, current) => total + ' ' + current, '');
 	$: created_at = new Date((image.Created ?? 0) * 1000);
 	$: fileSize = fileSizeMagnitudeBytes(image.Size);
 
@@ -35,12 +35,18 @@
 
 <TableBodyRow class={visible ? 'visible' : 'hidden'}>
 	<TableBodyCell>
-		<Heading tag="h5" id={makeId('imageName', id)}>
+		<Heading tag="h5" id={makeId('imageName', id)} class="max-w-72 overflow-hidden text-ellipsis  whitespace-nowrap">
 			{name_display.length === 0 ? '<none>' : name_display}
 		</Heading>
 		<Popover triggeredBy="#{makeId('imageName', id)}" class="text-center">
 			<Heading tag="h6">ID:</Heading>
 			<P italic>{id}</P>
+			<Heading tag="h6">Tags:</Heading>
+			<div class="grid grid-cols-3">
+				{#each image.RepoTags as t}
+					<P italic>{t}</P>
+				{/each}
+			</div>
 		</Popover>
 	</TableBodyCell>
 	<TableBodyCell>
