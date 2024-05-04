@@ -14,7 +14,7 @@ use ulid::Ulid;
 use crate::api::error::ApiError;
 use crate::api::projects::project_management::new_project;
 use crate::api::projects::Project;
-use crate::config::BUILD_LOG_FOLDER;
+use crate::config::IO_LOG_FOLDER;
 use crate::util::format_webhook_url;
 use crate::SharedAppState;
 
@@ -26,7 +26,7 @@ use super::{BaseProject, NewProject};
 use anyhow::anyhow;
 
 pub async fn list_builds() -> Result<Json<Vec<String>>, ApiError> {
-    let mut files_iter = fs::read_dir(&PathBuf::from(BUILD_LOG_FOLDER))
+    let mut files_iter = fs::read_dir(&PathBuf::from(IO_LOG_FOLDER))
         .await
         .map_err(|e| ApiError::new(StatusCode::INTERNAL_SERVER_ERROR, e.into()))?;
 

@@ -11,10 +11,11 @@ use bollard::Docker;
 use store::Store;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
-use crate::config::{STORE_FILE, STORE_LOCATION};
+use crate::config::{IO_LOG_FOLDER, STORE_FILE, STORE_LOCATION};
 
 pub mod api;
 pub mod config;
@@ -108,7 +109,12 @@ async fn main() {
             "/io/current",
             get(api::projects::routes::list_current_builds),
         )
-        .route("/io/history", get(api::projects::routes::list_builds));
+        .nest(
+            "/io/history",
+            Router::new()
+                .route("/", get(api::projects::routes::list_builds))
+                .nest_service("/files", ServeDir::new(IO_LOG_FOLDER)),
+        );
 
     // build our application with a route
     let app = Router::new()

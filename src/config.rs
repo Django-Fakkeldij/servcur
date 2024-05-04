@@ -7,4 +7,4 @@ pub const WEBHOOK_URL_PATH: &str = "/projects/webhook";
 pub const STORE_LOCATION: &str = concatcp!(DATA_FOLDER, "/store");
 pub const STORE_FILE: &str = "store.json";
 
-pub const BUILD_LOG_FOLDER: &str = concatcp!(DATA_FOLDER, "/builds");
+pub const IO_LOG_FOLDER: &str = concatcp!(DATA_FOLDER, "/io");

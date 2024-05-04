@@ -22,7 +22,7 @@ use tokio::{
 use tracing::{debug, error, info, info_span, instrument, trace, warn, Instrument};
 use ulid::Ulid;
 
-use crate::{config::BUILD_LOG_FOLDER, util::upsert_file};
+use crate::{config::IO_LOG_FOLDER, util::upsert_file};
 
 use super::BaseProject;
 
@@ -336,7 +336,7 @@ async fn execute_handle_manager(
     // write to file
     let filename = format!("{id}.json");
     if let Ok(v) = &ret {
-        v.direct_to_file(&PathBuf::from(BUILD_LOG_FOLDER), &PathBuf::from(filename))
+        v.direct_to_file(&PathBuf::from(IO_LOG_FOLDER), &PathBuf::from(filename))
             .await
             .context("error while writing to file")?;
     }
