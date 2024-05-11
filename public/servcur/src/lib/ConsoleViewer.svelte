@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { afterUpdate } from 'svelte';
 	import { writable } from 'svelte/store';
+	import type { ConsoleMessage } from './models/console';
 
 	export let port: MessagePort;
 
-	const total = [] as string[];
-	const lines = writable<string[]>([]);
+	const total = [] as ConsoleMessage[];
+	const lines = writable<ConsoleMessage[]>([]);
 	port.onmessage = (m) => {
 		total.push(m.data);
 		lines.set(total);
@@ -45,8 +46,8 @@
 
 <div class="h-full overflow-auto overflow-x-auto text-nowrap rounded-md border-b-8 border-blue-500 bg-slate-950 p-2">
 	{#each $lines as l}
-		<div>
-			{l}
+		<div class={l?.class}>
+			{l.line}
 		</div>
 	{/each}
 	<div bind:this={viewElem} class="h-2" />

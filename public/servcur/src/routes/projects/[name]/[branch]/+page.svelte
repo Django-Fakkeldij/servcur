@@ -2,7 +2,9 @@
 	import ConsoleViewer from '$lib/ConsoleViewer.svelte';
 	import ProjectDockerfileActions from '$lib/ProjectDockerfileActions.svelte';
 	import { API_ROUTES, API_URL } from '$lib/api.js';
+	import type { ConsoleMessage } from '$lib/models/console.js';
 	import type { ProjectGet } from '$lib/models/projects.js';
+	import { dateString } from '$lib/util';
 	import { Card, Heading, Hr, P } from 'flowbite-svelte';
 	import { getContext, onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -17,21 +19,35 @@
 	const channel = new MessageChannel();
 	channel.port1.start();
 
-	function ConnectToIo(id: string) {
+	function ConnectToIo(id: string, init: string = '') {
+		const c = 'text-gray-600 opacity-50';
+		channel.port1.postMessage({ line: `Connecting to ${init} action IO`, class: c } satisfies ConsoleMessage);
 		const ws_stdout = new WebSocket(API_ROUTES.project_io_ws(id, 'stdout'));
 		ws_stdout.onmessage = (ev) => {
-			channel.port1.postMessage(ev.data);
+			const t = dateString(new Date());
+			channel.port1.postMessage({ line: t + ': ' + ev.data } satisfies ConsoleMessage);
 		};
 		const ws_stderr = new WebSocket(API_ROUTES.project_io_ws(id, 'stderr'));
 		ws_stderr.onmessage = (ev) => {
-			channel.port1.postMessage(ev.data);
+			const t = dateString(new Date());
+			channel.port1.postMessage({ line: t + ': ' + ev.data, class: 'text-orange-600' } satisfies ConsoleMessage);
+		};
+		ws_stdout.onclose = (ev) => {
+			channel.port1.postMessage({ line: `Closing ${init} action IO (stdout)`, class: c } satisfies ConsoleMessage);
+		};
+		ws_stderr.onclose = (ev) => {
+			channel.port1.postMessage({ line: `Closing ${init} action IO (stderr)`, class: c } satisfies ConsoleMessage);
 		};
 		active_conns.push(ws_stderr);
 		active_conns.push(ws_stdout);
 	}
 
 	onDestroy(() => {
-		active_conns.forEach((c) => c.close());
+		active_conns.forEach((c) => {
+			try {
+				c.close();
+			} catch {}
+		});
 	});
 </script>
 
@@ -43,8 +59,8 @@
 				{#if project?.project_kind.type === 'DockerFile'}
 					<ProjectDockerfileActions
 						{project}
-						onAction={async (_, res) => {
-							ConnectToIo(res.io_id);
+						onAction={async (k, res) => {
+							ConnectToIo(res.io_id, k);
 						}}
 					/>
 				{/if}
