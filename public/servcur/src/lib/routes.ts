@@ -2,6 +2,7 @@ export const routes = {
 	home: '/' as const,
 	dashboard: '/dashboard' as const,
 	projects: '/projects' as const,
+	project_create: '/projects/create' as const,
 	containers: '/containers' as const,
 	container: (id: string) => `/containers/${id}` as const,
 	project: (name: string, branch: string) => `/projects/${name}/${branch}` as const,

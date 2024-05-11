@@ -2,7 +2,9 @@
 	import ProjectCard from '$lib/ProjectCard.svelte';
 	import { API_ROUTES } from '$lib/api';
 	import type { ProjectGet } from '$lib/models/projects';
-	import { Card, Heading, Secondary, Table, TableBody, TableHead, TableHeadCell } from 'flowbite-svelte';
+	import { routes } from '$lib/routes';
+	import { A, Card, Heading, Secondary, Table, TableBody, TableHead, TableHeadCell } from 'flowbite-svelte';
+	import { PlusOutline } from 'flowbite-svelte-icons';
 	import { getContext, onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
@@ -37,7 +39,12 @@
 	<Card horizontal class="w-full max-w-6xl items-center gap-2 !p-4">
 		<Table divClass="w-full">
 			<caption class="bg-white p-5 text-left text-lg font-semibold text-gray-900 dark:bg-gray-800 dark:text-white">
-				<Heading>Projects</Heading>
+				<div class="flex items-center">
+					<Heading>Projects</Heading>
+					<A href={routes.project_create}>
+						<PlusOutline size="sm" />
+					</A>
+				</div>
 				<Secondary class="mt-1 text-sm font-normal text-gray-500 dark:text-gray-400">All projects on this box.</Secondary>
 			</caption>
 			<TableHead>
