@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { Heading, P, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
-	import Actions from './Actions.svelte';
+	import Actions from './Action.svelte';
 	import { API_ROUTES } from './api';
 	import type { Volume } from './docker_types/__generated';
 	import { dateString } from './util';
@@ -30,6 +30,6 @@
 		{dateString(created_at)}
 	</TableBodyCell>
 	<TableBodyCell>
-		<Actions OnDelete={onDelete} />
+		<Actions OnAction={onDelete}>X</Actions>
 	</TableBodyCell>
 </TableBodyRow>

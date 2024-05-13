@@ -53,6 +53,7 @@
 				<TableHeadCell>Based on</TableHeadCell>
 				<TableHeadCell>Project kind</TableHeadCell>
 				<TableHeadCell>Path on disk</TableHeadCell>
+				<TableHeadCell>Action</TableHeadCell>
 			</TableHead>
 			<TableBody>
 				{#each $projects as project}

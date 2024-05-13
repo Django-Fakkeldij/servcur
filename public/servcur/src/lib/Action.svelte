@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { Button, Spinner } from 'flowbite-svelte';
 
-	export let OnDelete: () => Promise<void> = async () => {};
+	export let OnAction: () => Promise<void> = async () => {};
+	export let OnActionColor: Button['$$prop_def']['color'] = 'red';
 
 	let clicked = 0;
 	$: loading = false;
@@ -9,7 +10,7 @@
 		loading = true;
 		if (c >= 2) {
 			clicked = 0;
-			await OnDelete();
+			await OnAction();
 		}
 		loading = false;
 	}
@@ -19,5 +20,5 @@
 {#if loading}
 	<Spinner />
 {:else}
-	<Button class="py-2" color={clicked === 1 ? 'red' : 'primary'} on:click={() => (clicked += 1)}>X</Button>
+	<Button class="py-2" color={clicked === 1 ? OnActionColor : 'primary'} on:click={() => (clicked += 1)}><slot /></Button>
 {/if}

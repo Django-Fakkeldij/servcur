@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import { Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
-	import Actions from './Actions.svelte';
+	import Actions from './Action.svelte';
 	import { API_ROUTES } from './api';
 	import type { ImageSummary } from './docker_types/__generated';
 	import { dateString, fileSizeMagnitudeBytes, makeId } from './util';
@@ -57,6 +57,6 @@
 		{fileSize[1]}
 	</TableBodyCell>
 	<TableBodyCell>
-		<Actions OnDelete={onDelete} />
+		<Actions OnAction={onDelete}>X</Actions>
 	</TableBodyCell>
 </TableBodyRow>

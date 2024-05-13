@@ -9,6 +9,7 @@ export const API_ROUTES = {
 	project_builds_current: `${API_URL}/projects/io/current` as const,
 	project_build_history: `${API_URL}/projects/io/history` as const,
 	project_action: (name: string, branch: string) => `${API_URL}/projects/action/${name}/${branch}` as const,
+	project_remove: (name: string, branch: string) => `${API_URL}/projects?name=${name}&branch=${branch}` as const,
 	project_io_ws: (id: string, pipe: 'stdout' | 'stderr') => `${API_WS_URL}/projects/io/${id}/${pipe}` as const,
 	containers: `${API_URL}/containers` as const,
 	containers_logs_ws: (name: string, since: number) => `${API_WS_URL}/containers/${name}/logs?since=${since}` as const,

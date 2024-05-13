@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { A, Badge, Heading, P, Popover, TableBodyCell, TableBodyRow } from 'flowbite-svelte';
 	import { CheckCircleSolid, ClockSolid, CloseCircleSolid, QuestionCircleSolid } from 'flowbite-svelte-icons';
-	import Actions from './Actions.svelte';
+	import Action from './Action.svelte';
 	import { API_ROUTES } from './api';
 	import type { ContainerSummary } from './docker_types/__generated';
 	import { routes } from './routes';
@@ -95,6 +95,6 @@
 		</Badge>
 	</TableBodyCell>
 	<TableBodyCell>
-		<Actions OnDelete={onDelete} />
+		<Action OnAction={onDelete}>X</Action>
 	</TableBodyCell>
 </TableBodyRow>
