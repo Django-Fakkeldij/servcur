@@ -3,13 +3,13 @@ use tokio::sync::{Mutex, RwLock, RwLockWriteGuard};
 
 use crate::store::Store;
 
-use super::{Project, Projects};
+use super::{BaseProject, Project, Projects};
 use anyhow::Result;
 
 #[derive(Debug, Clone)]
 pub struct ProjectStore {
     inner: Arc<RwLock<Projects>>,
-    store: Arc<Mutex<Store>>,
+    fs_store: Arc<Mutex<Store>>,
 }
 
 impl ProjectStore {
@@ -19,7 +19,7 @@ impl ProjectStore {
             content.0 = store_content;
         };
         Self {
-            store: Arc::new(Mutex::new(store)),
+            fs_store: Arc::new(Mutex::new(store)),
             inner: Arc::new(RwLock::new(content)),
         }
     }
@@ -36,7 +36,15 @@ impl ProjectStore {
         let mut store = self.inner.write().await;
 
         store.insert(project)?;
-        self.store.lock().await.write(&store.0).await?;
+        self.fs_store.lock().await.write(&store.0).await?;
+        Ok(())
+    }
+
+    pub async fn remove(&self, project: &BaseProject) -> Result<()> {
+        let mut store = self.inner.write().await;
+
+        store.remove(project)?;
+        self.fs_store.lock().await.write(&store.0).await?;
 
         Ok(())
     }

@@ -92,6 +92,7 @@ async fn main() {
     let projects_router = Router::new()
         .route("/", get(api::projects::routes::list_projects_route))
         .route("/", post(api::projects::routes::new_project_route))
+        .route("/", delete(api::projects::routes::remove_project_route))
         .route("/pull", get(api::projects::routes::pull_project_route))
         .route(
             "/webhook/:name/:branch",

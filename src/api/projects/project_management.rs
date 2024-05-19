@@ -1,7 +1,11 @@
 use std::path::PathBuf;
 use std::process::Stdio;
 
+use tokio::fs;
+
 use crate::util::create_git_auth_url;
+use crate::util::format_project_folder;
+use crate::util::format_project_root_folder;
 
 use super::NewProject;
 use super::PROJECT_FOLDER;
@@ -17,8 +21,8 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<PathBuf> {
         return Err(anyhow::Error::msg("not an https git url"));
     }
 
-    let project_root_folder = format!("{PROJECT_FOLDER}/{}", project.name);
-    let project_branch_folder = format!("{PROJECT_FOLDER}/{}/{}", project.name, project.branch);
+    let project_root_folder = format_project_root_folder(&project.name);
+    let project_branch_folder = format_project_folder(&project.name, &project.branch);
     // Exists already
     if tokio::fs::try_exists(&project_branch_folder).await? {
         return Err(anyhow::Error::msg("Project/ branch already exists"));
@@ -48,6 +52,11 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<PathBuf> {
         return Err(anyhow::anyhow!(output.to_string()));
     }
     Ok(PathBuf::from(project_branch_folder))
+}
+
+pub async fn remove_project(name: &str, branch: &str) -> anyhow::Result<()> {
+    fs::remove_dir_all(format_project_folder(name, branch)).await?;
+    Ok(())
 }
 
 pub async fn pull_project(name: &str, branch: &str) -> anyhow::Result<()> {

@@ -15,8 +15,15 @@ use tokio::{
 
 use crate::{
     api::projects::GitAuth,
-    config::{TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
+    config::{PROJECT_FOLDER, TEMP_SCRIPT_FOLDER, WEBHOOK_URL_PATH},
 };
+
+pub fn format_project_root_folder(name: &str) -> String {
+    format!("{PROJECT_FOLDER}/{}", name)
+}
+pub fn format_project_folder(name: &str, branch: &str) -> String {
+    format!("{PROJECT_FOLDER}/{}/{}", name, branch)
+}
 
 pub fn format_time_iso8601(dt: DateTime<Utc>) -> String {
     dt.format("%FT%H%M%SZ").to_string()

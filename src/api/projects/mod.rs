@@ -63,6 +63,16 @@ impl Projects {
         self.0.push(project);
         Ok(())
     }
+
+    pub fn remove(&mut self, project: &BaseProject) -> Result<()> {
+        for (i, item) in self.0.iter().enumerate() {
+            if item.project_name == project.name && item.branch == project.branch {
+                self.0.remove(i);
+                return Ok(());
+            }
+        }
+        bail!("project does not exist");
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

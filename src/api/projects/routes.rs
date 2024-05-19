@@ -20,7 +20,7 @@ use crate::SharedAppState;
 
 use super::actions::ActionCommand;
 use super::executor::IoHandleID;
-use super::project_management::pull_project;
+use super::project_management::{pull_project, remove_project};
 use super::{BaseProject, NewProject};
 
 use anyhow::anyhow;
@@ -191,4 +191,13 @@ pub async fn list_projects_route(
     let projects = state.projects.get_all().await.0;
 
     Ok((StatusCode::OK, Json(projects)))
+}
+pub async fn remove_project_route(
+    State(state): State<SharedAppState>,
+    Query(project): Query<BaseProject>,
+) -> Result<StatusCode, ApiError> {
+    remove_project(&project.name, &project.branch).await?;
+    state.projects.remove(&project).await?;
+
+    Ok(StatusCode::OK)
 }
