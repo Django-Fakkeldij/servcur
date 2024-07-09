@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::process::Stdio;
 
 use tokio::fs;
+use tracing::warn;
 
 use crate::util::create_git_auth_url;
 use crate::util::format_project_folder;
@@ -56,11 +57,8 @@ pub async fn new_project(project: &NewProject) -> anyhow::Result<PathBuf> {
 
 pub async fn remove_project(name: &str, branch: &str) -> anyhow::Result<()> {
     fs::remove_dir_all(format_project_folder(name, branch)).await?;
-    let mut it = fs::read_dir(format_project_root_folder(name))
-        .await
-        .into_iter();
-    for v in it {
-        println!("not empty: {:#?}", v);
+    if let Err(e) = fs::remove_dir(format_project_root_folder(name)).await {
+        warn!(e = %e, "project root directory was probably not empty");
     }
 
     Ok(())
