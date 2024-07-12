@@ -1,16 +1,5 @@
-import { browser } from '$app/environment';
-
-export let API_HOST: string = '';
-if (browser) {
-	API_HOST = document.location.host;
-}
-export let API_PROTOCOL: string = '';
-if (browser) {
-	API_PROTOCOL = document.location.protocol;
-	console.log(API_PROTOCOL);
-}
-export const API_URL = `${API_PROTOCOL}://${API_HOST}` as const;
-export const API_WS_URL = `${API_PROTOCOL === 'http' ? 'ws' : 'wss'}://${API_HOST}` as const;
+export const API_URL = `` as const;
+export const API_WS_URL = `` as const;
 
 export const API_ROUTES = {
 	system: `${API_URL}/system` as const,
