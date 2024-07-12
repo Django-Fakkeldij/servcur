@@ -7,6 +7,7 @@ if (browser) {
 export let API_PROTOCOL: string = '';
 if (browser) {
 	API_PROTOCOL = document.location.protocol;
+	console.log(API_PROTOCOL);
 }
 export const API_URL = `${API_PROTOCOL}://${API_HOST}` as const;
 export const API_WS_URL = `${API_PROTOCOL === 'http' ? 'ws' : 'wss'}://${API_HOST}` as const;
