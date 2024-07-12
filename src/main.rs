@@ -4,6 +4,7 @@ use std::sync::Arc;
 use api::docker_crud;
 use api::projects::executor::ProjectIoExecutor;
 use api::projects::project_store::ProjectStore;
+use axum::response::Redirect;
 use axum::routing::{delete, post};
 use axum::{http::StatusCode, routing::get, Router};
 
@@ -128,7 +129,8 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
-        .route("/", get(root))
+        .route("/", get(|| async { Redirect::temporary("/app") }))
+        .route("/ping", get(root))
         .route("/system", get(docker_crud::docker_sys_info))
         .nest("/volumes", volumes_router)
         .nest("/containers", containers_router)
@@ -157,5 +159,5 @@ async fn main() {
 }
 
 async fn root() -> (StatusCode, &'static str) {
-    (StatusCode::OK, "hi")
+    (StatusCode::OK, "pong")
 }
