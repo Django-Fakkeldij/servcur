@@ -11,7 +11,7 @@ use bollard::Docker;
 use store::Store;
 use tokio::sync::Mutex;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::services::ServeDir;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::EnvFilter;
 
@@ -117,6 +117,14 @@ async fn main() {
                 .nest_service("/files", ServeDir::new(IO_LOG_FOLDER)),
         );
 
+    // Static files
+    let serve_dir = ServeDir::new("public/servcur/build")
+        .not_found_service(ServeFile::new("public/servcur/build/index.html"));
+
+    let static_file_router = Router::new()
+        .nest_service("/assets", serve_dir.clone())
+        .fallback_service(serve_dir);
+
     // build our application with a route
     let app = Router::new()
         // `GET /` goes to `root`
@@ -127,6 +135,7 @@ async fn main() {
         .nest("/images", images_router)
         .nest("/networks", networks_router)
         .nest("/projects", projects_router)
+        .nest("/app", static_file_router)
         .with_state(state)
         .layer(
             CorsLayer::new()
@@ -137,9 +146,7 @@ async fn main() {
         )
         .layer(TraceLayer::new_for_http());
     // run our app with hyper
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on http://{}", listener.local_addr().unwrap());
     axum::serve(
         listener,

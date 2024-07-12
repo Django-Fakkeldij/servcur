@@ -1,4 +1,4 @@
-FROM rust:latest AS builder
+FROM rust:latest AS rust_builder
 WORKDIR /app
 
 COPY Cargo.toml .
@@ -11,11 +11,19 @@ RUN cargo build --release
 
 RUN strip target/release/servcur
 
+FROM node:21 as node_builder
+
+WORKDIR /app
+
+COPY public/servcur .
+
+RUN npm install
+RUN npm run build
+
+
 FROM gcr.io/distroless/cc-debian12 as release
 WORKDIR /app
-COPY --from=builder /app/target/release/servcur .
-COPY public public
-
-EXPOSE 3000
+COPY --from=rust_builder /app/target/release/servcur .
+COPY --from=node_builder /app/build ./public/servcur/build
 
 CMD ["./servcur"]

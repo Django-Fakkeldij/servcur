@@ -1,0 +1,22 @@
+version: '3'
+
+services:
+  servcur:
+    build:
+      context: .
+    deploy:
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    hostname: servcur
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - 3000:3000
+    # For http
+    expose:
+      - '3000'
+
+networks:
+  default:
+    name: inter-network
