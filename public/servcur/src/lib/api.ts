@@ -4,8 +4,12 @@ export let API_HOST: string = '';
 if (browser) {
 	API_HOST = document.location.host;
 }
-export const API_URL = `http://${API_HOST}` as const;
-export const API_WS_URL = `ws://${API_HOST}` as const;
+export let API_PROTOCOL: string = '';
+if (browser) {
+	API_PROTOCOL = document.location.protocol;
+}
+export const API_URL = `${API_PROTOCOL}://${API_HOST}` as const;
+export const API_WS_URL = `${API_PROTOCOL === 'http' ? 'ws' : 'wss'}://${API_HOST}` as const;
 
 export const API_ROUTES = {
 	system: `${API_URL}/system` as const,
