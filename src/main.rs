@@ -146,7 +146,7 @@ async fn main() {
         )
         .layer(TraceLayer::new_for_http());
     // run our app with hyper
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:80").await.unwrap();
     tracing::debug!("listening on http://{}", listener.local_addr().unwrap());
     axum::serve(
         listener,
