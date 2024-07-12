@@ -11,6 +11,7 @@ services:
     hostname: servcur
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+    # For local expose
     ports:
       - 3000:3000
     # For http

@@ -1,4 +1,9 @@
-export const API_HOST = '127.0.0.1:3000' as const;
+import { browser } from '$app/environment';
+
+export let API_HOST: string = '';
+if (browser) {
+	API_HOST = document.location.host;
+}
 export const API_URL = `http://${API_HOST}` as const;
 export const API_WS_URL = `ws://${API_HOST}` as const;
 

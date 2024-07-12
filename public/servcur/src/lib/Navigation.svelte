@@ -1,10 +1,11 @@
 <script lang="ts">
+	import { base } from '$app/paths';
 	import { page } from '$app/stores';
 	import { Sidebar, SidebarBrand, SidebarGroup, SidebarItem, SidebarWrapper } from 'flowbite-svelte';
 	import { ChartPieSolid, CodeForkSolid, DatabaseSolid, FileCodeSolid, GridSolid, ReceiptSolid } from 'flowbite-svelte-icons';
 	import { routes } from './routes';
 
-	$: activeUrl = '/' + $page.url.pathname.split('/')[1];
+	$: activeUrl = base + '/' + $page.url.pathname.slice(base.length, $page.url.pathname.length).split('/')[1];
 	let activeClass =
 		'flex items-center p-2 text-base font-normal text-primary-900 bg-primary-200 dark:bg-primary-700 rounded-lg dark:text-white hover:bg-primary-100 dark:hover:bg-gray-700';
 	let nonActiveClass =
@@ -13,7 +14,7 @@
 	const site = {
 		name: 'ServCur',
 		href: routes.home,
-		img: '/favicon.png',
+		img: `${base}/favicon.png`,
 	};
 </script>
 
