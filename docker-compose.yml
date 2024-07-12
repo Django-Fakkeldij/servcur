@@ -10,7 +10,7 @@ services:
         max_attempts: 3
     hostname: servcur
     networks:
-      - inter-network
+      inter-network:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     # For local expose
