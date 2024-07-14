@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { AnsiUp } from 'ansi_up';
 	import { afterUpdate } from 'svelte';
 	import { writable } from 'svelte/store';
+	import ConsoleLine from './ConsoleLine.svelte';
 	import type { ConsoleMessage } from './models/console';
 
 	export let port: MessagePort;
@@ -42,13 +44,13 @@
 		checkObserver();
 		checkScroll();
 	});
+
+	const AU = new AnsiUp();
 </script>
 
 <div class="h-full overflow-auto overflow-x-auto text-nowrap rounded-md border-b-8 border-blue-500 bg-slate-950 p-2">
 	{#each $lines as l}
-		<div class={l?.class}>
-			{l.line}
-		</div>
+		<ConsoleLine {l} {AU} />
 	{/each}
 	<div bind:this={viewElem} class="h-2" />
 </div>
