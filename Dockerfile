@@ -9,7 +9,7 @@ COPY src src
 RUN touch src/main.rs
 RUN cargo build --release
 
-RUN strip target/release/servcur
+RUN strip /app/target/release/servcur
 
 FROM node:21 as node_builder
 
@@ -21,7 +21,8 @@ RUN npm install
 RUN npm run build
 
 
-FROM gcr.io/distroless/cc-debian12 as release
+FROM alpine:latest as release
+RUN apk update && apk add git
 WORKDIR /app
 COPY --from=rust_builder /app/target/release/servcur .
 COPY --from=node_builder /app/build ./public/servcur/build
