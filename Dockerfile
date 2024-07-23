@@ -22,7 +22,7 @@ RUN npm run build
 
 
 FROM alpine:latest as release
-RUN apk update && apk add git
+RUN apk update && apk add git && apk add bash
 WORKDIR /app
 COPY --from=rust_builder /app/target/x86_64-unknown-linux-musl/release/servcur .
 COPY --from=node_builder /app/build ./public/servcur/build
