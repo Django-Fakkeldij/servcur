@@ -322,7 +322,7 @@ async fn execute_handle(
     Ok(Box::new(io))
 }
 
-#[instrument(err, name = "IoHandleExecute", level = "info")]
+#[instrument(err(Debug), name = "IoHandleExecute", level = "info")]
 #[allow(clippy::blocks_in_conditions)]
 async fn execute_handle_manager(
     id: IoHandleID,
